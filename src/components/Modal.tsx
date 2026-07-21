@@ -42,13 +42,13 @@ export function Modal({
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className={`modal-panel max-h-[90vh] w-full ${width} overflow-y-auto p-5`}
+        className={`modal-panel modal-sheet flex max-h-[92vh] w-full flex-col ${width}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
         {title && (
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
             <h2 className="text-lg font-bold tracking-tight">{title}</h2>
             <button
               className="btn-icon text-muted hover:bg-bg hover:text-ink"
@@ -59,7 +59,7 @@ export function Modal({
             </button>
           </div>
         )}
-        {children}
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
       </div>
     </div>,
     document.body

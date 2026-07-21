@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ShoppingCart, Heart, Home, PackageSearch, Info, User, Menu, X, Store } from 'lucide-react';
+import { ShoppingCart, Heart, Home, PackageSearch, Info, User, Menu, Store } from 'lucide-react';
 import { cartCount, onCartChange } from '@/lib/cart';
 import { favoritesCount, onFavoritesChange } from '@/lib/favorites';
 import { useCustomer } from '@/components/CustomerProvider';
+import { MobileDrawer } from '@/components/MobileDrawer';
 import type { Settings } from '@/lib/types';
 
 const NAV_LINKS = [
@@ -35,14 +36,8 @@ export function StoreNav({ settings }: { settings: Settings }) {
     };
   }, []);
 
-  // Close the drawer when navigating, and lock body scroll while it's open.
+  // Close the drawer when navigating.
   useEffect(() => setMenuOpen(false), [pathname]);
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : '';
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [menuOpen]);
 
   const storeName = settings.store_name || 'OPEN STORE';
 
@@ -105,70 +100,66 @@ export function StoreNav({ settings }: { settings: Settings }) {
         </div>
       </nav>
 
-      {/* Mobile sidebar drawer */}
-      {menuOpen && (
-        <div className="md:hidden">
-          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
-          <aside className="animate-slide-in fixed left-0 top-0 z-50 flex h-full w-72 max-w-[82%] flex-col border-r border-line bg-card shadow-2xl">
-            <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
-              <div className="flex min-w-0 items-center gap-2">
-                {settings.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={settings.logo_url} alt="" className="h-8 w-8 rounded-theme object-cover" />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-theme bg-primary text-[color:var(--color-primary-fg)]">
-                    <Store size={16} />
-                  </div>
-                )}
-                <span className="truncate font-bold">{storeName}</span>
-              </div>
-              <button className="btn-icon text-muted hover:bg-bg hover:text-ink" onClick={() => setMenuOpen(false)} aria-label="Close menu">
-                <X size={20} />
-              </button>
-            </div>
-
-            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-              {NAV_LINKS.map((l) => {
-                const active = pathname === l.href;
-                const Icon = l.icon;
-                return (
-                  <Link
-                    key={l.href}
-                    href={l.href}
-                    className={`flex items-center gap-3 rounded-theme px-3 py-2.5 text-sm font-medium transition ${
-                      active ? 'bg-primary text-[color:var(--color-primary-fg)]' : 'text-ink hover:bg-bg'
-                    }`}
-                  >
-                    <Icon size={18} /> {l.label}
-                  </Link>
-                );
-              })}
-              <Link
-                href="/cart"
-                className="mt-1 flex items-center justify-between rounded-theme px-3 py-2.5 text-sm font-medium text-ink hover:bg-bg"
-              >
-                <span className="flex items-center gap-3">
-                  <ShoppingCart size={18} /> Cart
-                </span>
-                {count > 0 && (
-                  <span
-                    className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold"
-                    style={{ background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}
-                  >
-                    {count}
-                  </span>
-                )}
-              </Link>
-            </nav>
-
-            {customer && (
-              <div className="border-t border-line px-4 py-3 text-xs text-muted">
-                Signed in as <span className="font-medium text-ink">{customer.name || customer.email}</span>
+      {/* Mobile sidebar drawer (portaled to body) */}
+      <MobileDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        header={
+          <div className="flex min-w-0 items-center gap-2">
+            {settings.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={settings.logo_url} alt="" className="h-8 w-8 rounded-theme object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-theme bg-primary text-[color:var(--color-primary-fg)]">
+                <Store size={16} />
               </div>
             )}
-          </aside>
-        </div>
-      )}
+            <span className="truncate font-bold">{storeName}</span>
+          </div>
+        }
+      >
+        <nav className="flex flex-1 flex-col gap-1 p-3">
+          {NAV_LINKS.map((l) => {
+            const active = pathname === l.href;
+            const Icon = l.icon;
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                onClick={() => setMenuOpen(false)}
+                className={`flex items-center gap-3 rounded-theme px-3 py-2.5 text-sm font-medium transition ${
+                  active ? 'bg-primary text-[color:var(--color-primary-fg)]' : 'text-ink hover:bg-bg'
+                }`}
+              >
+                <Icon size={18} /> {l.label}
+              </Link>
+            );
+          })}
+          <Link
+            href="/cart"
+            onClick={() => setMenuOpen(false)}
+            className="mt-1 flex items-center justify-between rounded-theme px-3 py-2.5 text-sm font-medium text-ink hover:bg-bg"
+          >
+            <span className="flex items-center gap-3">
+              <ShoppingCart size={18} /> Cart
+            </span>
+            {count > 0 && (
+              <span
+                className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold"
+                style={{ background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}
+              >
+                {count}
+              </span>
+            )}
+          </Link>
+        </nav>
+
+        {customer && (
+          <div className="border-t border-line px-4 py-3 text-xs text-muted">
+            Signed in as <span className="font-medium text-ink">{customer.name || customer.email}</span>
+          </div>
+        )}
+      </MobileDrawer>
     </header>
   );
 }

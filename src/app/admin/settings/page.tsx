@@ -57,13 +57,24 @@ function SettingsForm() {
   }
 
   const categories = parseCategories(settings.categories);
-  function setCategories(list: string[]) {
-    set('categories', JSON.stringify(Array.from(new Set(list.map((c) => c.trim()).filter(Boolean)))));
+
+  // Categories auto-save to the DB as you add/remove them (no need to hit Save).
+  async function persistCategories(list: string[]) {
+    const json = JSON.stringify(Array.from(new Set(list.map((c) => c.trim()).filter(Boolean))));
+    set('categories', json);
+    const ok = await saveSettings({ categories: json });
+    if (!ok) toast(S.errSaveFailed, 'error');
   }
   function addCategory() {
-    if (!newCat.trim()) return;
-    setCategories([...categories, newCat]);
+    const name = newCat.trim();
+    if (!name) return;
+    if (categories.some((c) => c.toLowerCase() === name.toLowerCase())) {
+      toast('That category already exists', 'error');
+      return;
+    }
     setNewCat('');
+    persistCategories([...categories, name]);
+    toast('Category added', 'success');
   }
 
   async function onLogo(e: React.ChangeEvent<HTMLInputElement>) {
@@ -218,7 +229,7 @@ function SettingsForm() {
                 {c}
                 <button
                   className="ml-1 text-muted hover:text-red-600"
-                  onClick={() => setCategories(categories.filter((x) => x !== c))}
+                  onClick={() => persistCategories(categories.filter((x) => x !== c))}
                   aria-label={`Remove ${c}`}
                 >
                   <X size={13} />

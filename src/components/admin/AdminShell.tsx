@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { isLoggedIn, signOut, getAdminEmail } from '@/lib/auth';
 import { FullPageSpinner } from '@/components/Spinner';
+import { MobileDrawer } from '@/components/MobileDrawer';
 import { useT } from '@/components/LanguageProvider';
 import { BUILDER_NAME, BUILDER_URL } from '@/lib/brand';
 
@@ -120,7 +121,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <div className="relative mx-auto flex max-w-6xl gap-6 px-4 py-6">
+      <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6">
         {/* Sidebar (desktop) */}
         <aside className="hidden w-56 shrink-0 md:block">
           <div className="sticky top-20">
@@ -139,12 +140,23 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        {/* Mobile drawer */}
-        {menuOpen && (
-          <div className="absolute inset-x-4 top-2 z-20 rounded-theme border border-line bg-card p-2 shadow-xl md:hidden">
+        {/* Mobile drawer (portaled to body) */}
+        <MobileDrawer
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          header={
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-[color:var(--color-primary-fg)]">
+                <Store size={16} />
+              </div>
+              <span className="font-bold">Admin</span>
+            </div>
+          }
+        >
+          <div className="p-3">
             <NavList />
           </div>
-        )}
+        </MobileDrawer>
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>

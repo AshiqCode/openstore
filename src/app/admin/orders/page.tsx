@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Spinner } from '@/components/Spinner';
 import { useToast } from '@/components/Toast';
 import { getOrders, getSettings, updateOrderStatus } from '@/lib/store';
 import { money, shortDate, buildOrderMessage, waLink } from '@/lib/format';
-import { MapPin, MessageCircle, Package } from 'lucide-react';
+import { MapPin, MessageCircle, Package, ChevronDown, Check } from 'lucide-react';
 import {
   DEFAULT_SETTINGS,
   type Order,
@@ -148,17 +148,7 @@ function Orders() {
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <select
-                  className="input w-auto py-1.5 text-sm capitalize"
-                  value={o.status}
-                  onChange={(e) => changeStatus(o, e.target.value as OrderStatus)}
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                <StatusSelect status={o.status} onChange={(s) => changeStatus(o, s)} />
                 <button
                   className="btn btn-outline btn-sm inline-flex items-center gap-1.5"
                   onClick={() => whatsapp(o)}
@@ -187,5 +177,67 @@ function StatusBadge({ status }: { status: OrderStatus }) {
     <span className="badge" style={{ background: s.bg, color: s.color }}>
       {s.label}
     </span>
+  );
+}
+
+// Stylish status dropdown: a colored pill that opens a menu of statuses.
+function StatusSelect({
+  status,
+  onChange,
+}: {
+  status: OrderStatus;
+  onChange: (s: OrderStatus) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', onClick);
+    return () => window.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  const cur = STATUS_STYLES[status] ?? STATUS_STYLES.pending;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1.5 rounded-full py-1.5 pl-2.5 pr-2 text-sm font-semibold"
+        style={{ background: cur.bg, color: cur.color }}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="h-2 w-2 rounded-full" style={{ background: cur.color }} />
+        {cur.label}
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 z-20 mt-1.5 w-44 overflow-hidden rounded-theme border border-line bg-card p-1 shadow-lg">
+          {STATUSES.map((s) => {
+            const st = STATUS_STYLES[s];
+            return (
+              <button
+                key={s}
+                type="button"
+                className="flex w-full items-center justify-between gap-2 rounded-[calc(var(--radius)-2px)] px-2.5 py-2 text-left text-sm hover:bg-bg"
+                onClick={() => {
+                  onChange(s);
+                  setOpen(false);
+                }}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: st.color }} />
+                  {st.label}
+                </span>
+                {status === s && <Check size={15} className="text-primary" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

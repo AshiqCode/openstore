@@ -214,6 +214,16 @@ h1, h2, h3, h4 {
     box-shadow: var(--shadow-lg);
     animation: panel-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  /* On mobile the modal is a bottom sheet: flat bottom edge-to-edge. */
+  @media (max-width: 640px) {
+    .modal-sheet {
+      border-bottom: 0;
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      border-top-left-radius: 1rem;
+      border-top-right-radius: 1rem;
+    }
+  }
 
   /* ---- Skeleton ------------------------------------------------------- */
   .skeleton {
