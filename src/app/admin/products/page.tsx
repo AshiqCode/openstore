@@ -330,8 +330,8 @@ function ProductForm({
   }
 
   return (
-    <Modal open onClose={onClose} title={initial ? 'Edit product' : 'Add product'} size="lg">
-      <div className="flex flex-col gap-4 pb-2">
+    <Modal open onClose={onClose} title={initial ? 'Edit product' : 'Add product'} size="xl">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 pb-2">
         {/* Image first — big preview + upload */}
         <div>
           <label className="label">Photo</label>
@@ -463,13 +463,15 @@ function ProductForm({
       </div>
 
       {/* Sticky footer so Save is always reachable on mobile */}
-      <div className="sticky bottom-0 -mx-5 -mb-5 flex gap-2 border-t border-line bg-card px-5 py-3">
-        <button className="btn btn-outline flex-1" onClick={onClose}>
-          {S.cancel}
-        </button>
-        <button className="btn btn-primary flex-1" onClick={save} disabled={saving || uploading}>
-          {saving ? <Spinner size={18} /> : S.save}
-        </button>
+      <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-card px-5 py-3">
+        <div className="mx-auto flex w-full max-w-2xl gap-2">
+          <button className="btn btn-outline flex-1" onClick={onClose}>
+            {S.cancel}
+          </button>
+          <button className="btn btn-primary flex-1" onClick={save} disabled={saving || uploading}>
+            {saving ? <Spinner size={18} /> : S.save}
+          </button>
+        </div>
       </div>
     </Modal>
   );

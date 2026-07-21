@@ -19,7 +19,7 @@ export function Modal({
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -37,12 +37,20 @@ export function Modal({
 
   if (!open || !mounted) return null;
 
-  const width = size === 'sm' ? 'max-w-sm' : size === 'lg' ? 'max-w-lg' : 'max-w-md';
+  // `xl` fills ~90% of the screen (used for the product editor); others cap width.
+  const sizeClass =
+    size === 'sm'
+      ? 'max-w-sm'
+      : size === 'lg'
+        ? 'max-w-lg'
+        : size === 'xl'
+          ? 'sm:h-[90vh] sm:w-[90vw] sm:max-w-[1100px]'
+          : 'max-w-md';
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className={`modal-panel modal-sheet flex max-h-[92vh] w-full flex-col ${width}`}
+        className={`modal-panel modal-sheet flex max-h-[92vh] w-full flex-col ${sizeClass}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
