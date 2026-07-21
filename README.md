@@ -6,54 +6,43 @@ to your WhatsApp, and everything is managed from a simple admin dashboard.
 
 ---
 
-## 🟢 No account, no coding — drag & drop deploy (recommended for most people)
+## 🚀 Deploy on Vercel
 
-**Don't have a GitHub account and don't want one? This is for you.** You deploy the already-built
-`out` folder — no Git, no terminal.
+Two ways — pick one, both are free and both run on **Vercel**.
 
-1. **Download the ready-made store:** [**`out.zip`**](../../raw/main/out.zip) (also on the
-   [Releases page](../../releases)). Unzip it — inside is a folder called **`out`** (the store).
-2. Go to **[app.netlify.com/drop](https://app.netlify.com/drop)** and **drag the `out` folder** onto
-   the page. It deploys instantly and gives you a live link. _(Sign up with just an email to keep it
-   — no GitHub needed. Vercel can also host it via its CLI, but Netlify Drop is the simplest no-Git way.)_
-3. Open your new link → it takes you to the **setup wizard**, which links your free Supabase account
-   and runs the setup SQL. You log in with your **Supabase Project URL + anon key**.
-4. On the last step, **download `config.json`**, replace the empty `config.json` inside your `out`
-   folder, and **drag the folder onto Netlify Drop again**. Now the store works for every visitor. 🎉
-
-> First need a database? Create a free project at [supabase.com](https://supabase.com) (~1 minute),
-> then copy your **Project URL** and **anon public key** from Project Settings → API.
-
----
-
-## ⚡ One-click deploy with a Git account (fastest if you have GitHub)
-
-> The **Deploy with Vercel** button copies this repo into *your* Git account, so it asks you to
-> connect **GitHub / GitLab / Bitbucket** (all free). If you don't want a Git account, use the
-> drag-and-drop method above instead.
->
-> Maintainers: replace `AshiqCode/openstore` in the button link with **your** repo.
+### Option A — One-click button (easiest)
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FAshiqCode%2Fopenstore&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY&envDescription=Your%20Supabase%20Project%20URL%20and%20anon%20public%20key%20(Supabase%20%E2%86%92%20Project%20Settings%20%E2%86%92%20API)&envLink=https%3A%2F%2Fgithub.com%2FAshiqCode%2Fopenstore%2Fblob%2Fmain%2F.env.example)
 
-1. **Click the button** → sign in to Vercel (free) → connect a Git provider → it copies the store in.
+1. **Click the button** → sign in to Vercel (free). To copy the project in, Vercel connects a free
+   Git provider (**GitHub / GitLab / Bitbucket** — sign-up takes ~1 minute).
 2. Vercel shows a **short form** for two values (from **Supabase → Project Settings → API**):
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
    - **anon public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 3. Click **Deploy** → open **`your-site.vercel.app/admin`** → click **Copy SQL** and run it once in
    Supabase. 🎉 The store is live for everyone.
 
----
+> Maintainers: replace `AshiqCode/openstore` in the button link with **your** repo.
 
-## 💻 Deploy on Vercel without Git (using the CLI)
+### Option B — No GitHub account (upload the folder to Vercel)
 
-Want Vercel specifically but no GitHub? Use the Vercel CLI once — no Git account needed:
+Don't want any Git account? Deploy the ready-made **`out`** folder straight to Vercel with one command —
+Vercel signs you in by **email**, no Git needed.
 
-```bash
-npm install          # first time only
-npm run build        # produces the static ./out folder
-npx vercel deploy --prod out    # sign in to Vercel, then it uploads the folder
-```
+1. Download [**`out.zip`**](../../raw/main/out.zip) and unzip it — you get an **`out`** folder.
+2. Install **[Node.js](https://nodejs.org)** (free), then open a terminal in that folder and run:
+
+   ```bash
+   npx vercel deploy --prod out
+   ```
+
+   Follow the email sign-in link. Vercel uploads the folder and gives you a live `*.vercel.app` URL.
+3. Open **`your-site.vercel.app/admin`** → the setup wizard links your Supabase project and gives you
+   the SQL to run. On the last step, **download `config.json`**, put it in the `out` folder, and run
+   the same command again so every visitor gets a working store.
+
+> First need a database? Create a free project at [supabase.com](https://supabase.com) (~1 minute),
+> then copy your **Project URL** and **anon public key** from Project Settings → API.
 
 ---
 

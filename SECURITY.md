@@ -1,6 +1,6 @@
 # Security — honest notes
 
-DukaanKit trades some security hardness for radical simplicity: **no server, no build step,
+OPEN STORE trades some security hardness for radical simplicity: **no server, no build step,
 no login system to manage.** This is the right call for a small student/seller store, but you
 should understand exactly what that means.
 
