@@ -73,11 +73,18 @@ a working store automatically (no `config.json` step):
 ## ❓ FAQ
 
 **How do I log in to the admin panel?**
-Open `your-site.com/admin` → paste your Supabase **Project URL + anon key** → **Login**. Those keys
-are your admin login — there is no separate password.
+Open `your-site.com/admin`. The first time, run the setup SQL, then use **Create account** to make
+your admin login (**email + password**, stored in your Supabase database). After that, just log in
+with that email and password. The Supabase keys only connect the store — they aren't your login.
 
 **Can I log in from another device?**
-Yes. Enter the same keys in any browser. You'll find them in Supabase → Project Settings → API.
+Yes. As long as the store is connected (env vars or `config.json`), log in with the same email and
+password on any device.
+
+**I forgot my admin password.**
+There's no email reset. Change it while logged in (Admin → Password), or reset it in Supabase:
+run `select admin_change_password('you@example.com','oldpass','newpass');` in the SQL Editor, or
+delete your row from the `admins` table and create the account again.
 
 **Can I add products from my phone?**
 Yes — the whole admin panel is mobile-first. Just open `your-site.com/admin`.

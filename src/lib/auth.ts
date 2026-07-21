@@ -1,66 +1,123 @@
-// Admin auth = "log in with your Supabase keys".
+// Admin auth = email + password, stored in the `admins` table (see setup.sql).
 //
-// The owner logs in by entering their Supabase Project URL + anon public key.
-// We validate by hitting the database; if the store tables exist, the keys are
-// accepted, saved as the app config, and an admin session flag is stored in
-// localStorage (30-day expiry). This works from any browser/device — no email,
-// no account table, no dependency on a pre-baked config.json.
+// The Supabase keys only CONNECT the app (via env vars / config.json). The store
+// owner logs in with an email + password — hashed with bcrypt server-side via
+// SECURITY DEFINER RPC functions (no email/SMTP, no key typing).
+//
+// `connectWithKeys` is a fallback for stores deployed WITHOUT env vars or a
+// baked config.json: it saves the keys to this browser so the owner can reach
+// Supabase, then they log in with email + password as normal.
 
-import { makeTempClient, resetSupabase } from './supabase';
+import { getSupabase, makeTempClient, resetSupabase } from './supabase';
 import { writeLocalConfig } from './config';
 
-export type AuthResult = {
-  ok: boolean;
-  error?: string;
-  needsSetup?: boolean; // keys valid but store tables missing → run SQL
-};
+export type AuthResult = { ok: boolean; error?: string };
 
 const SESSION_KEY = 'admin_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-// Validate the Supabase keys and, on success, configure + log in.
-export async function loginWithKeys(url: string, anonKey: string): Promise<AuthResult> {
+function rpcError(message: string): string {
+  if (/could not find the function|does not exist|schema cache/i.test(message))
+    return 'Setup not complete — run the setup SQL in Supabase first.';
+  return message;
+}
+
+// ---- Connect (config fallback when there are no env vars / config.json) ----
+
+export async function connectWithKeys(url: string, anonKey: string): Promise<AuthResult> {
   const u = url.trim();
   const k = anonKey.trim();
   if (!u || !k) return { ok: false, error: 'Enter your Project URL and anon key.' };
-
   let client;
   try {
     client = makeTempClient({ supabaseUrl: u, supabaseAnonKey: k });
   } catch {
     return { ok: false, error: 'That Project URL looks invalid.' };
   }
-
   try {
     const { error } = await client.from('settings').select('key').limit(1);
-    if (error) {
-      if (/invalid|jwt|api key|not authorized/i.test(error.message)) {
-        return { ok: false, error: 'These keys are not valid — re-copy them from Supabase.' };
-      }
-      // Reached the server but the tables aren't there yet.
-      return {
-        ok: false,
-        needsSetup: true,
-        error: 'Connected, but the store tables are missing. Run the setup SQL first.',
-      };
+    if (error && /invalid|jwt|api key|not authorized/i.test(error.message)) {
+      return { ok: false, error: 'These keys are not valid — re-copy them from Supabase.' };
     }
   } catch {
     return { ok: false, error: 'Could not reach Supabase — check the Project URL.' };
   }
-
   writeLocalConfig({ supabaseUrl: u, supabaseAnonKey: k });
   resetSupabase();
-  startSession(u);
   return { ok: true };
 }
 
-// ---- Session (localStorage, 30 days) -------------------------------------
+// ---- Admin account (email + password via RPC) ------------------------------
 
-type Session = { url: string; at: number };
+export async function adminSignup(email: string, password: string): Promise<AuthResult> {
+  const supabase = await getSupabase();
+  if (!supabase) return { ok: false, error: 'Store not connected.' };
+  const { data, error } = await supabase.rpc('admin_signup', {
+    p_email: email.trim(),
+    p_password: password,
+  });
+  if (error) return { ok: false, error: rpcError(error.message) };
+  switch (data) {
+    case 'ok':
+      return adminLogin(email, password);
+    case 'exists':
+      return { ok: false, error: 'An admin with this email already exists. Log in instead.' };
+    case 'weak_password':
+      return { ok: false, error: 'Password must be at least 6 characters.' };
+    case 'invalid_email':
+      return { ok: false, error: 'Please enter a valid email address.' };
+    default:
+      return { ok: false, error: 'Could not create the admin account.' };
+  }
+}
 
-export function startSession(url = ''): void {
+export async function adminLogin(email: string, password: string): Promise<AuthResult> {
+  const supabase = await getSupabase();
+  if (!supabase) return { ok: false, error: 'Store not connected.' };
+  const { data, error } = await supabase.rpc('admin_login', {
+    p_email: email.trim(),
+    p_password: password,
+  });
+  if (error) return { ok: false, error: rpcError(error.message) };
+  if (data === true) {
+    startSession(email.trim().toLowerCase());
+    return { ok: true };
+  }
+  return { ok: false, error: 'Wrong email or password.' };
+}
+
+export async function adminChangePassword(
+  email: string,
+  current: string,
+  next: string
+): Promise<AuthResult> {
+  const supabase = await getSupabase();
+  if (!supabase) return { ok: false, error: 'Store not connected.' };
+  const { data, error } = await supabase.rpc('admin_change_password', {
+    p_email: email.trim(),
+    p_current: current,
+    p_new: next,
+  });
+  if (error) return { ok: false, error: rpcError(error.message) };
+  switch (data) {
+    case 'ok':
+      return { ok: true };
+    case 'wrong_current':
+      return { ok: false, error: 'Current password is wrong.' };
+    case 'weak_password':
+      return { ok: false, error: 'New password must be at least 6 characters.' };
+    default:
+      return { ok: false, error: 'Could not change the password.' };
+  }
+}
+
+// ---- Session (localStorage, 30 days) --------------------------------------
+
+type Session = { email: string; at: number };
+
+export function startSession(email: string): void {
   if (typeof window === 'undefined') return;
-  const session: Session = { url, at: nowMs() };
+  const session: Session = { email, at: nowMs() };
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
@@ -89,15 +146,8 @@ export function isLoggedIn(): boolean {
   return readSession() !== null;
 }
 
-// The Supabase project host, shown subtly in the admin header.
-export function getSessionHost(): string {
-  const s = readSession();
-  if (!s?.url) return '';
-  try {
-    return new URL(s.url).host;
-  } catch {
-    return '';
-  }
+export function getAdminEmail(): string {
+  return readSession()?.email ?? '';
 }
 
 function nowMs(): number {

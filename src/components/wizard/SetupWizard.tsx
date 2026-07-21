@@ -12,7 +12,7 @@ import { THEMES, applyTheme } from '@/lib/themes';
 import { makeTempClient, resetSupabase } from '@/lib/supabase';
 import { writeLocalConfig, buildConfigFileContents, type StoreConfig } from '@/lib/config';
 import { saveSettings } from '@/lib/store';
-import { startSession } from '@/lib/auth';
+import { adminSignup } from '@/lib/auth';
 
 const WIZARD_STATE_KEY = 'wizard_state';
 const TOTAL_STEPS = 6;
@@ -24,6 +24,9 @@ type WizardState = {
   storeName: string;
   whatsapp: string;
   theme: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
 };
 
 const INITIAL: WizardState = {
@@ -33,6 +36,9 @@ const INITIAL: WizardState = {
   storeName: '',
   whatsapp: '',
   theme: 'clean',
+  email: '',
+  password: '',
+  confirmPassword: '',
 };
 
 export function SetupWizard() {
@@ -52,7 +58,12 @@ export function SetupWizard() {
   }, []);
 
   useEffect(() => {
-    if (loaded) localStorage.setItem(WIZARD_STATE_KEY, JSON.stringify(st));
+    if (!loaded) return;
+    // Never persist the plaintext password to localStorage.
+    const { password, confirmPassword, ...persist } = st;
+    void password;
+    void confirmPassword;
+    localStorage.setItem(WIZARD_STATE_KEY, JSON.stringify(persist));
   }, [st, loaded]);
 
   useEffect(() => {
@@ -123,9 +134,9 @@ export function SetupWizard() {
               });
               if (!ok) return { ok: false, error: 'Could not save — check your connection.' };
 
-              // 3) Log in with the keys (session flag).
-              startSession(st.supabaseUrl);
-              return { ok: true };
+              // 3) Create the admin account (email + password) and log in.
+              const res = await adminSignup(st.email, st.password);
+              return res;
             }}
             onDone={() => go(6)}
             onBack={() => go(4)}
@@ -423,8 +434,14 @@ function StepBasics({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.email.trim());
+
   async function finish() {
     setErr('');
+    if (!emailValid) return setErr('Please enter a valid admin email.');
+    if (state.password.length < 6) return setErr('Password must be at least 6 characters.');
+    if (state.password !== state.confirmPassword) return setErr('Passwords do not match.');
+
     setSaving(true);
     const res = await onFinish();
     setSaving(false);
@@ -434,7 +451,7 @@ function StepBasics({
 
   return (
     <div>
-      <Heading title="Store basics" sub="Baaki sab baad mein Settings se badal sakte hain." />
+      <Heading title="Store basics & admin login" sub="Ye aapka store aur login banayega." />
 
       <label className="label">Store name</label>
       <input
@@ -452,7 +469,41 @@ function StepBasics({
         value={state.whatsapp}
         onChange={(e) => patch({ whatsapp: e.target.value })}
       />
-      <p className="mt-1 text-xs text-muted">Orders is number par WhatsApp karenge.</p>
+
+      {/* Admin login (email + password stored in the admins table) */}
+      <div className="mt-5 rounded-theme border border-line bg-bg p-4">
+        <div className="mb-2 font-semibold">Your admin login</div>
+        <label className="label">Email</label>
+        <input
+          className="input"
+          type="email"
+          placeholder="you@example.com"
+          value={state.email}
+          onChange={(e) => patch({ email: e.target.value })}
+        />
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label">Password</label>
+            <input
+              className="input"
+              type="password"
+              placeholder="Min 6 characters"
+              value={state.password}
+              onChange={(e) => patch({ password: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Confirm</label>
+            <input
+              className="input"
+              type="password"
+              value={state.confirmPassword}
+              onChange={(e) => patch({ confirmPassword: e.target.value })}
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted">Is email + password se admin panel mein login karenge.</p>
+      </div>
 
       <label className="label mt-5">Pick a theme</label>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

@@ -17,30 +17,28 @@ should understand exactly what that means.
    That's expected — it's called the *anon public* key for a reason. RLS, not secrecy, is what
    keeps data safe.
 
-2. **Admin login = your Supabase keys.** You log into `/admin` by entering your Supabase Project
-   URL + anon public key. If they connect to a set-up store, you're in; a flag is stored in the
-   browser's `localStorage` for 30 days. No emails, no accounts table.
+2. **Admin login = email + password (bcrypt in the DB).** Accounts live in the `admins` table with
+   bcrypt-hashed passwords, reachable only through `SECURITY DEFINER` functions (`admin_signup`,
+   `admin_login`, `admin_change_password`). The Supabase keys only *connect* the app — they are not
+   the admin login. A 30-day session flag is stored in the browser's `localStorage`.
 
-   ⚠️ **Understand this trade-off clearly:** the anon key is **public** — it ships inside
-   `config.json` so the storefront can load products. That means anyone who opens
-   `yoursite.com/config.json` can read the key and, in principle, use it to log into your admin
-   panel. Admin access here is *convenience gating*, not a hard security boundary. This is an
-   intentional choice for a tiny, low-stakes store run by one person.
+   The remaining trade-off: table **writes still allow the anon role** (so the no-server admin panel
+   can function). A determined person with your anon key could write to product/order/settings rows
+   directly — but they **cannot** read admin password hashes or forge a login. For a small store
+   this is an accepted trade-off. Once your own admin account exists, you can revoke open sign-up:
+   `revoke execute on function admin_signup(text, text) from anon;` (run in the SQL Editor).
 
-   If you need a real boundary later, options are: (a) don't bake keys into `config.json` and share
-   the store link only privately, or (b) move to Supabase Auth with RLS write policies limited to
-   `authenticated`. Both are bigger changes and out of scope for this lightweight build.
+3. **Orders are readable with the anon key** (the admin panel lists them without a server). Don't
+   collect data you wouldn't want a determined person to see. Customer name, phone, and address are
+   stored — that's inherent to taking delivery orders.
 
-3. **Orders are readable with the anon key** (the admin panel needs to list them without a login
-   system). Don't collect data you wouldn't want a determined person to see. Customer name, phone,
-   and address are stored — that's inherent to taking delivery orders.
-
-4. **Guard your Supabase keys.** Since keys are the login, treat your Project URL + anon key like a
-   password for admin purposes. Never share your **service_role** key or put it in `config.json`.
+4. **Guard your keys and password.** The anon key is public by design (it connects the store); never
+   expose your **service_role** key. Use a strong admin password — there is no email-based reset.
 
 ## Recommendations
 
-- Keep your anon key private if you can (see point 2) — anyone with it can reach the admin panel.
+- After creating your admin account, revoke open sign-up (see point 2) so no one else can register.
+- Use a strong, unique admin password — there is no email-based recovery.
 - Never expose your Supabase **service_role** key anywhere in this app.
 - Don't reuse your Supabase database password anywhere else.
 - Keep your Supabase project's **service_role** key secret — it is *never* used by this app and

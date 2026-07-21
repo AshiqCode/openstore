@@ -120,8 +120,57 @@ create policy "public read images" on storage.objects
 create policy "anon upload images" on storage.objects
   for insert with check (bucket_id = 'store-images');
 
--- Admin login uses your Supabase Project URL + anon key (entered on the login
--- screen) — no separate accounts table is needed.
+-- ---------------------------------------------------------------------------
+-- Admin accounts (store owner login) — email + bcrypt password, NO email/SMTP.
+-- The Supabase keys connect the app (via env vars / config.json); the admin
+-- logs in with an email + password stored here. Locked-down table (RLS on, no
+-- policies); all access is through the SECURITY DEFINER functions below.
+-- ---------------------------------------------------------------------------
+create extension if not exists pgcrypto;
+
+create table if not exists admins (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null,
+  password_hash text not null,
+  created_at timestamptz default now()
+);
+
+alter table admins enable row level security;
+
+-- Create the admin account. Returns 'ok' | 'exists' | 'weak_password' | 'invalid_email'.
+create or replace function admin_signup(p_email text, p_password text)
+returns text language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if p_email is null or position('@' in p_email) = 0 then return 'invalid_email'; end if;
+  if p_password is null or length(p_password) < 6 then return 'weak_password'; end if;
+  if exists (select 1 from admins where lower(email) = lower(p_email)) then return 'exists'; end if;
+  insert into admins (email, password_hash) values (lower(p_email), crypt(p_password, gen_salt('bf')));
+  return 'ok';
+end; $$;
+
+create or replace function admin_login(p_email text, p_password text)
+returns boolean language plpgsql security definer set search_path = public, extensions as $$
+declare stored text;
+begin
+  select password_hash into stored from admins where lower(email) = lower(p_email);
+  if stored is null then return false; end if;
+  return stored = crypt(p_password, stored);
+end; $$;
+
+create or replace function admin_change_password(p_email text, p_current text, p_new text)
+returns text language plpgsql security definer set search_path = public, extensions as $$
+declare stored text;
+begin
+  select password_hash into stored from admins where lower(email) = lower(p_email);
+  if stored is null or stored <> crypt(p_current, stored) then return 'wrong_current'; end if;
+  if p_new is null or length(p_new) < 6 then return 'weak_password'; end if;
+  update admins set password_hash = crypt(p_new, gen_salt('bf')) where lower(email) = lower(p_email);
+  return 'ok';
+end; $$;
+
+grant execute on function admin_signup(text, text) to anon, authenticated;
+grant execute on function admin_login(text, text) to anon, authenticated;
+grant execute on function admin_change_password(text, text, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Customer accounts (shoppers). Email + bcrypt password, NO email/SMTP.

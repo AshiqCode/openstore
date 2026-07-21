@@ -10,13 +10,14 @@ import {
   Settings as SettingsIcon,
   Palette,
   Plug,
+  KeyRound,
   Menu,
   LogOut,
   ExternalLink,
   Store,
   type LucideIcon,
 } from 'lucide-react';
-import { isLoggedIn, signOut, getSessionHost } from '@/lib/auth';
+import { isLoggedIn, signOut, getAdminEmail } from '@/lib/auth';
 import { FullPageSpinner } from '@/components/Spinner';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useT } from '@/components/LanguageProvider';
@@ -29,7 +30,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const S = useT();
   const [checked, setChecked] = useState(false);
-  const [host, setHost] = useState('');
+  const [email, setEmail] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const nav: { href: string; label: string; icon: LucideIcon }[] = [
@@ -38,6 +39,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: '/admin/orders', label: S.orders, icon: Package },
     { href: '/admin/settings', label: S.settings, icon: SettingsIcon },
     { href: '/admin/theme', label: S.theme, icon: Palette },
+    { href: '/admin/password', label: S.changePassword, icon: KeyRound },
     { href: '/admin/config', label: S.config, icon: Plug },
   ];
 
@@ -47,7 +49,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       return;
     }
     setChecked(true);
-    setHost(getSessionHost());
+    setEmail(getAdminEmail());
   }, [router, pathname]);
 
   if (!checked) return <FullPageSpinner />;
@@ -95,7 +97,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="leading-tight">
               <div className="text-sm font-bold">Admin</div>
-              {host && <div className="hidden text-[11px] text-muted sm:block">{host}</div>}
+              {email && <div className="hidden text-[11px] text-muted sm:block">{email}</div>}
             </div>
           </div>
           <div className="flex items-center gap-2">
