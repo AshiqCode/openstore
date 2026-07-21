@@ -7,6 +7,7 @@ import { StoreNav } from '@/components/StoreNav';
 import { StoreFooter } from '@/components/StoreFooter';
 import { ProductCard } from '@/components/ProductCard';
 import { FullPageSpinner } from '@/components/Spinner';
+import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { getActiveProducts, getSettings } from '@/lib/store';
 import { getFavorites, onFavoritesChange } from '@/lib/favorites';
@@ -32,6 +33,7 @@ export default function FavoritesPage() {
     return onFavoritesChange(() => setFavIds(getFavorites()));
   }, [guard]);
 
+  if (guard === 'unconfigured') return <StoreUnavailable />;
   if (guard !== 'ready') return <FullPageSpinner />;
 
   const favProducts = products.filter((p) => favIds.includes(p.id));

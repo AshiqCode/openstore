@@ -6,6 +6,7 @@ import { Mail, Lock, User, Phone, MapPin, LogOut } from 'lucide-react';
 import { StoreNav } from '@/components/StoreNav';
 import { StoreFooter } from '@/components/StoreFooter';
 import { FullPageSpinner, Spinner } from '@/components/Spinner';
+import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { getSettings } from '@/lib/store';
 import {
@@ -37,6 +38,7 @@ function AccountInner() {
     getSettings().then(setSettings);
   }, [guard]);
 
+  if (guard === 'unconfigured') return <StoreUnavailable />;
   if (guard !== 'ready') return <FullPageSpinner />;
 
   return (

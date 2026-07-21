@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StoreNav } from '@/components/StoreNav';
 import { FullPageSpinner } from '@/components/Spinner';
+import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { getSettings } from '@/lib/store';
 import { getCart, setQty, removeFromCart, cartSubtotal, onCartChange } from '@/lib/cart';
@@ -27,6 +28,7 @@ export default function CartPage() {
     return onCartChange(() => setItems(getCart()));
   }, [guard]);
 
+  if (guard === 'unconfigured') return <StoreUnavailable />;
   if (guard !== 'ready' || !ready) return <FullPageSpinner />;
 
   const subtotal = cartSubtotal();

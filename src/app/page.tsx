@@ -5,6 +5,7 @@ import { StoreNav } from '@/components/StoreNav';
 import { StoreFooter } from '@/components/StoreFooter';
 import { ProductCard } from '@/components/ProductCard';
 import { FullPageSpinner } from '@/components/Spinner';
+import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { getActiveProducts, getSettings } from '@/lib/store';
 import { Store, Star, Search, X } from 'lucide-react';
@@ -75,6 +76,7 @@ export default function HomePage() {
   const storeClosed = settings.store_open === 'false';
   const searching = query.trim().length > 0;
 
+  if (guard === 'unconfigured') return <StoreUnavailable />;
   if (guard !== 'ready') return <FullPageSpinner />;
 
   return (

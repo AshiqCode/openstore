@@ -7,6 +7,7 @@ import { PackageSearch, MessageCircle, LogIn } from 'lucide-react';
 import { StoreNav } from '@/components/StoreNav';
 import { StoreFooter } from '@/components/StoreFooter';
 import { FullPageSpinner, Spinner } from '@/components/Spinner';
+import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { getOrderByCode, getOrdersForCustomer, getSettings } from '@/lib/store';
 import { money, shortDate, waLink } from '@/lib/format';
@@ -56,6 +57,7 @@ function TrackInner() {
     setSearching(false);
   }
 
+  if (guard === 'unconfigured') return <StoreUnavailable />;
   if (guard !== 'ready') return <FullPageSpinner />;
 
   return (

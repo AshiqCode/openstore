@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { StoreNav } from '@/components/StoreNav';
 import { StoreFooter } from '@/components/StoreFooter';
 import { FullPageSpinner } from '@/components/Spinner';
+import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { getProduct, getActiveProducts, getSettings } from '@/lib/store';
 import { addToCart } from '@/lib/cart';
@@ -65,6 +66,7 @@ function ProductInner() {
     }
   }
 
+  if (guard === 'unconfigured') return <StoreUnavailable />;
   if (guard !== 'ready' || loading) return <FullPageSpinner />;
 
   const related = product

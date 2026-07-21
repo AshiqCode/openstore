@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StoreNav } from '@/components/StoreNav';
 import { FullPageSpinner } from '@/components/Spinner';
+import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { createOrder, getSettings } from '@/lib/store';
 import { getCart, cartSubtotal, clearCart } from '@/lib/cart';
@@ -46,6 +47,7 @@ export default function CheckoutPage() {
     }
   }, [customer]);
 
+  if (guard === 'unconfigured') return <StoreUnavailable />;
   if (guard !== 'ready' || !ready) return <FullPageSpinner />;
 
   // Login is required to place an order (keeps the cart + profile safe).
