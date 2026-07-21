@@ -7,11 +7,22 @@ import { LanguageProvider } from '@/components/LanguageProvider';
 import { CustomerProvider } from '@/components/CustomerProvider';
 import { DisclaimerNotice } from '@/components/DisclaimerNotice';
 import { FaviconSetter } from '@/components/FaviconSetter';
+import { PWARegister } from '@/components/PWARegister';
 import { THEME_BOOT_SCRIPT } from '@/lib/themes';
 
 export const metadata: Metadata = {
   title: 'OPEN STORE',
   description: 'OPEN STORE — shop online, order on WhatsApp.',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'OPEN STORE',
+    statusBarStyle: 'default',
+  },
 };
 
 export const viewport: Viewport = {
@@ -19,6 +30,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Mobile-first; the store must work well on a 360px phone.
   maximumScale: 5,
+  themeColor: '#111827',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -34,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ConfirmProvider>
               <CustomerProvider>
                 <FaviconSetter />
+                <PWARegister />
                 {/* Gates content until the theme is known (loader on first visit). */}
                 <ThemeGate>
                   <DisclaimerNotice />
