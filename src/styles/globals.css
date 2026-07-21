@@ -1,0 +1,279 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================================================================
+   Design system. Colors come from the active theme (CSS variables set on
+   <html data-theme>). This layer defines structure: typography, spacing,
+   radii, shadows, and reusable component classes shared across the whole app.
+   =========================================================================== */
+
+:root {
+  /* Theme fallback (the "clean" theme) so first paint is never unstyled. */
+  --color-primary: #111827;
+  --color-primary-fg: #ffffff;
+  --color-bg: #ffffff;
+  --color-card: #ffffff;
+  --color-text: #111827;
+  --color-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --radius: 6px;
+  --font-heading: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --btn-style: sharp;
+
+  /* Derived tokens */
+  --r-sm: calc(var(--radius) * 0.6);
+  --r-lg: calc(var(--radius) + 6px);
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.06), 0 1px 3px rgba(17, 24, 39, 0.04);
+  --shadow-md: 0 4px 12px rgba(17, 24, 39, 0.07), 0 2px 6px rgba(17, 24, 39, 0.05);
+  --shadow-lg: 0 18px 45px -12px rgba(17, 24, 39, 0.22);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.015em;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+/* Nicer scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+*::-webkit-scrollbar { height: 8px; width: 8px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
+}
+
+@layer components {
+  /* ---- Buttons -------------------------------------------------------- */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 px-4 py-2.5
+           text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50;
+    border-radius: var(--radius);
+    line-height: 1.1;
+    transition: transform 0.12s ease, filter 0.15s ease, background 0.15s ease,
+      box-shadow 0.18s ease, border-color 0.15s ease;
+  }
+  .btn:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
+
+  .btn-primary {
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(0.94);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--color-primary) 32%, transparent);
+  }
+
+  .btn-outline {
+    background: var(--color-card);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+  }
+  .btn-outline:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 5%, var(--color-card));
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-text);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+
+  .btn-danger {
+    background: #dc2626;
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-danger:hover:not(:disabled) { filter: brightness(0.94); }
+
+  .btn-sm { @apply px-3 py-1.5 text-xs; }
+  .btn-icon { @apply p-2; border-radius: var(--radius); }
+
+  /* ---- Surfaces ------------------------------------------------------- */
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+  }
+  .card-flat {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-lg);
+  }
+
+  /* Product card: lift + image zoom on hover. */
+  .product-card {
+    border-radius: var(--r-lg);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+  }
+  .product-card:hover .product-img { transform: scale(1.06); }
+  .product-img { transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+  /* ---- Forms ---------------------------------------------------------- */
+  .input {
+    @apply w-full px-3.5 py-2.5 text-base outline-none;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+  .input::placeholder { color: color-mix(in srgb, var(--color-muted) 80%, transparent); }
+  .input:focus {
+    border-color: var(--color-primary);
+    box-shadow: var(--ring);
+    background: var(--color-card);
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium;
+    color: var(--color-text);
+  }
+
+  /* ---- Chips / badges ------------------------------------------------- */
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-sm font-medium;
+    background: var(--color-card);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border)); }
+  .chip-active {
+    background: var(--color-primary);
+    color: var(--color-primary-fg);
+    border-color: var(--color-primary);
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+
+  /* ---- Section header ------------------------------------------------- */
+  .page-title { @apply text-2xl font-bold tracking-tight sm:text-[1.7rem]; }
+
+  /* Hero gradient tint from the theme primary. */
+  .hero-tint {
+    background:
+      radial-gradient(130% 130% at 0% 0%, color-mix(in srgb, var(--color-primary) 16%, transparent), transparent 60%),
+      radial-gradient(130% 130% at 100% 100%, color-mix(in srgb, var(--color-primary) 10%, transparent), transparent 55%),
+      var(--color-card);
+  }
+
+  /* ---- Modal ---------------------------------------------------------- */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4;
+    background: rgba(17, 24, 39, 0.45);
+    backdrop-filter: blur(3px);
+    animation: overlay-in 0.16s ease-out;
+  }
+  .modal-panel {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    animation: panel-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* ---- Skeleton ------------------------------------------------------- */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-muted) 12%, transparent) 25%,
+      color-mix(in srgb, var(--color-muted) 22%, transparent) 37%,
+      color-mix(in srgb, var(--color-muted) 12%, transparent) 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: var(--r-sm);
+  }
+}
+
+/* ---- Animations ------------------------------------------------------- */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast { animation: toast-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+@keyframes confetti-fall {
+  0% { transform: translateY(-10vh) rotate(0); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.35s ease both; }
+
+/* Branded full-page loader */
+@keyframes loader-spin { to { transform: rotate(360deg); } }
+@keyframes loader-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.86); opacity: 0.65; }
+}
+@keyframes loader-dot {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-6px); opacity: 1; }
+}
+.brand-loader-ring {
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    var(--color-primary),
+    color-mix(in srgb, var(--color-primary) 20%, transparent) 70%,
+    transparent
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px));
+  animation: loader-spin 0.9s linear infinite;
+}
