@@ -16,7 +16,6 @@ create table if not exists products (
 
 alter table products add column if not exists is_featured boolean default false;
 alter table products add column if not exists discount_percent int default 0;
-alter table orders add column if not exists customer_email text default '';
 
 create table if not exists settings (
   key text primary key,
@@ -33,6 +32,8 @@ create table if not exists orders (
   status text default 'pending',
   created_at timestamptz default now()
 );
+
+alter table orders add column if not exists customer_email text default '';
 
 insert into settings (key, value) values
   ('store_name', 'OPEN STORE'),
