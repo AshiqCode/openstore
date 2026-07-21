@@ -8,6 +8,7 @@ import { cartCount, onCartChange } from '@/lib/cart';
 import { favoritesCount, onFavoritesChange } from '@/lib/favorites';
 import { useCustomer } from '@/components/CustomerProvider';
 import { MobileDrawer } from '@/components/MobileDrawer';
+import { StoreDisclaimerBar } from '@/components/StoreDisclaimerBar';
 import type { Settings } from '@/lib/types';
 
 const NAV_LINKS = [
@@ -42,7 +43,9 @@ export function StoreNav({ settings }: { settings: Settings }) {
   const storeName = settings.store_name || 'OPEN STORE';
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-card/90 backdrop-blur">
+    <>
+      <StoreDisclaimerBar />
+      <header className="sticky top-0 z-30 border-b border-line bg-card/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <button
@@ -160,7 +163,8 @@ export function StoreNav({ settings }: { settings: Settings }) {
           </div>
         )}
       </MobileDrawer>
-    </header>
+      </header>
+    </>
   );
 }
 
