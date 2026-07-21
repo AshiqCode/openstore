@@ -214,12 +214,17 @@ export const THEMES: Theme[] = [
 
 export const DEFAULT_THEME_ID = 'clean';
 
+// localStorage key holding the last-applied theme so the boot script can paint
+// the correct theme before React loads (avoids the default-theme flash).
+export const THEME_CACHE_KEY = 'theme_cache';
+
 export function getTheme(id: string | null | undefined): Theme {
   return THEMES.find((t) => t.id === id) ?? THEMES[0];
 }
 
-// Apply a theme by writing its CSS variables onto <html>. Called on every
-// public/admin page load and instantly when the owner picks a new theme.
+// Apply a theme by writing its CSS variables onto <html>, and cache it so the
+// next page load can apply it instantly (before first paint) via the boot
+// script in the root layout. Called on load and when the owner picks a theme.
 export function applyTheme(id: string | null | undefined): void {
   if (typeof document === 'undefined') return;
   const theme = getTheme(id);
@@ -228,4 +233,24 @@ export function applyTheme(id: string | null | undefined): void {
   for (const [k, v] of Object.entries(theme.vars)) {
     root.style.setProperty(k, v);
   }
+  try {
+    localStorage.setItem(THEME_CACHE_KEY, JSON.stringify({ id: theme.id, vars: theme.vars }));
+  } catch {
+    /* ignore */
+  }
 }
+
+// Inline script (runs in <head> before paint) that applies the cached theme so
+// returning visitors never see the default theme flash. Kept dependency-free.
+export const THEME_BOOT_SCRIPT = `
+(function(){
+  try {
+    var c = JSON.parse(localStorage.getItem('${THEME_CACHE_KEY}'));
+    if (c && c.vars) {
+      var r = document.documentElement;
+      r.setAttribute('data-theme', c.id);
+      for (var k in c.vars) r.style.setProperty(k, c.vars[k]);
+    }
+  } catch (e) {}
+})();
+`;

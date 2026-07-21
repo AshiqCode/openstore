@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import '@/styles/globals.css';
-import { ThemeInit } from '@/components/ThemeInit';
+import { ThemeGate } from '@/components/ThemeInit';
 import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/Confirm';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { CustomerProvider } from '@/components/CustomerProvider';
 import { DisclaimerNotice } from '@/components/DisclaimerNotice';
+import { THEME_BOOT_SCRIPT } from '@/lib/themes';
 
 export const metadata: Metadata = {
   title: 'OPEN STORE',
@@ -22,15 +23,20 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Applies the cached theme before first paint → no default-theme flash. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body>
         <LanguageProvider>
           <ToastProvider>
             <ConfirmProvider>
               <CustomerProvider>
-                {/* Applies the saved theme as early as possible on the client. */}
-                <ThemeInit />
-                <DisclaimerNotice />
-                {children}
+                {/* Gates content until the theme is known (loader on first visit). */}
+                <ThemeGate>
+                  <DisclaimerNotice />
+                  {children}
+                </ThemeGate>
               </CustomerProvider>
             </ConfirmProvider>
           </ToastProvider>

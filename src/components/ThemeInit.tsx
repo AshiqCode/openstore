@@ -1,27 +1,52 @@
 'use client';
 
-import { useEffect } from 'react';
-import { applyTheme, DEFAULT_THEME_ID } from '@/lib/themes';
+import { useEffect, useState } from 'react';
+import { applyTheme, DEFAULT_THEME_ID, THEME_CACHE_KEY } from '@/lib/themes';
 import { getSettings } from '@/lib/store';
+import { FullPageSpinner } from '@/components/Spinner';
 
-// Applies the "clean" theme immediately, then swaps to the store's saved theme
-// once settings load. Kept as a tiny standalone component so every page (public
-// and admin) is themed without each one re-implementing this.
-export function ThemeInit() {
+// Gates the app until the store's theme is known, so visitors never see the
+// default theme flash into the selected one.
+//
+// - Returning visitor (theme cached): the layout boot script already applied
+//   the correct theme before paint, so we render immediately and just refresh
+//   from settings in the background.
+// - First visit (no cache): show a loader while we fetch the theme, then reveal
+//   the content already themed.
+export function ThemeGate({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false);
+
   useEffect(() => {
-    applyTheme(DEFAULT_THEME_ID);
     let active = true;
-    getSettings()
-      .then((s) => {
-        if (active) applyTheme(s.theme || DEFAULT_THEME_ID);
-      })
-      .catch(() => {
-        /* ignore — default theme already applied */
-      });
+
+    let hasCache = false;
+    try {
+      hasCache = !!localStorage.getItem(THEME_CACHE_KEY);
+    } catch {
+      /* ignore */
+    }
+
+    if (hasCache) {
+      setReady(true); // boot script already painted the right theme
+      getSettings()
+        .then((s) => active && applyTheme(s.theme || DEFAULT_THEME_ID))
+        .catch(() => {});
+    } else {
+      applyTheme(DEFAULT_THEME_ID);
+      getSettings()
+        .then((s) => {
+          if (!active) return;
+          applyTheme(s.theme || DEFAULT_THEME_ID);
+          setReady(true);
+        })
+        .catch(() => active && setReady(true));
+    }
+
     return () => {
       active = false;
     };
   }, []);
 
-  return null;
+  if (!ready) return <FullPageSpinner />;
+  return <>{children}</>;
 }
