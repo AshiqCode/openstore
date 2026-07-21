@@ -37,20 +37,21 @@ export function Modal({
 
   if (!open || !mounted) return null;
 
-  // `xl` fills ~90% of the screen (used for the product editor); others cap width.
-  const sizeClass =
-    size === 'sm'
-      ? 'max-w-sm'
-      : size === 'lg'
-        ? 'max-w-lg'
-        : size === 'xl'
-          ? 'sm:h-[90vh] sm:w-[90vw] sm:max-w-[1100px]'
-          : 'max-w-md';
+  const isXl = size === 'xl';
+  const width = size === 'sm' ? 'max-w-sm' : size === 'lg' ? 'max-w-lg' : 'max-w-md';
+
+  // `xl` = a centered 90% × 90% box on every screen size (the product editor).
+  // Utilities (items-center/p-4) sit in a later cascade layer than the
+  // component-layer .modal-overlay, so they override its mobile bottom-sheet.
+  const overlayClass = isXl ? 'modal-overlay items-center p-4' : 'modal-overlay';
+  const panelClass = isXl
+    ? 'modal-panel flex h-[90vh] w-[90vw] max-w-[1100px] flex-col'
+    : `modal-panel modal-sheet flex max-h-[92vh] w-full flex-col ${width}`;
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
+    <div className={overlayClass} onClick={onClose}>
       <div
-        className={`modal-panel modal-sheet flex max-h-[92vh] w-full flex-col ${sizeClass}`}
+        className={panelClass}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
