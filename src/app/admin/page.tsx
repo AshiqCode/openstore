@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Store, Link2, KeyRound, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Store, Link2, KeyRound, ExternalLink, ShieldCheck, ChevronDown } from 'lucide-react';
 import { FullPageSpinner, Spinner } from '@/components/Spinner';
 import { BrandGlow } from '@/components/BrandGlow';
 import { CopyButton } from '@/components/CopyButton';
@@ -11,11 +11,12 @@ import { isLoggedIn, adminLogin, adminAccountExists, connectWithKeys } from '@/l
 import { buildAdminSetupSql } from '@/lib/setupSql';
 import { useT } from '@/components/LanguageProvider';
 
-type Mode = 'checking' | 'connect' | 'setup' | 'login';
+type Mode = 'checking' | 'setup' | 'login';
 
 export default function AdminEntry() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('checking');
+  const [connected, setConnected] = useState(false);
 
   async function check() {
     setMode('checking');
@@ -24,11 +25,8 @@ export default function AdminEntry() {
       return;
     }
     const config = await resolveConfig();
-    if (!config) {
-      setMode('connect');
-      return;
-    }
-    const exists = await adminAccountExists();
+    setConnected(!!config);
+    const exists = config ? await adminAccountExists() : null;
     setMode(exists === true ? 'login' : 'setup');
   }
 
@@ -38,9 +36,14 @@ export default function AdminEntry() {
   }, []);
 
   if (mode === 'checking') return <FullPageSpinner />;
-  if (mode === 'connect') return <ConnectStore onConnected={check} />;
-  if (mode === 'setup') return <SetupAdmin onReady={() => setMode('login')} />;
-  return <LoginForm onSuccess={() => router.replace('/admin/dashboard')} />;
+  if (mode === 'login') return <LoginForm onSuccess={() => router.replace('/admin/dashboard')} />;
+  return (
+    <SetupAdmin
+      connected={connected}
+      onConnected={() => setConnected(true)}
+      onReady={() => setMode('login')}
+    />
+  );
 }
 
 function Shell({ title, sub, wide, children }: { title: string; sub: string; wide?: boolean; children: React.ReactNode }) {
@@ -70,12 +73,15 @@ function IconField({ icon: Icon, children }: { icon: typeof Mail; children: Reac
   );
 }
 
-// Shown only when there's no Supabase config (no env vars / config.json).
-function ConnectStore({ onConnected }: { onConnected: () => void }) {
+// Optional key-connect — only relevant when the store has no env vars / config.json.
+// Hidden behind a disclosure so "Create your admin login" stays the main screen.
+function ConnectKeys({ open, onConnected }: { open: boolean; onConnected: () => void }) {
+  const [show, setShow] = useState(open);
   const [url, setUrl] = useState('');
   const [anon, setAnon] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [ok, setOk] = useState(false);
 
   useEffect(() => {
     const local = readLocalConfig();
@@ -91,41 +97,63 @@ function ConnectStore({ onConnected }: { onConnected: () => void }) {
     setBusy(true);
     const res = await connectWithKeys(url, anon);
     setBusy(false);
-    if (res.ok) onConnected();
-    else setErr(res.error || 'Could not connect.');
+    if (res.ok) {
+      setOk(true);
+      onConnected();
+    } else setErr(res.error || 'Could not connect.');
   }
 
   return (
-    <Shell title="Connect your store" sub="Link this store to your Supabase project">
-      <form onSubmit={submit} className="card p-6 shadow-xl">
-        <p className="mb-4 rounded-theme bg-bg p-3 text-xs text-muted">
-          Tip: set <code>NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-          <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in Vercel and every visitor is connected
-          automatically. Or paste them here to use this device.
-        </p>
-        <label className="label">Project URL</label>
-        <IconField icon={Link2}>
-          <input className="input pl-9" placeholder="https://xxxx.supabase.co" value={url}
-            onChange={(e) => { setUrl(e.target.value); setErr(''); }} />
-        </IconField>
-        <label className="label mt-3">anon public key</label>
-        <IconField icon={KeyRound}>
-          <textarea className="input min-h-20 pl-9 font-mono text-xs" placeholder="eyJhbGciOi..." value={anon}
-            onChange={(e) => { setAnon(e.target.value); setErr(''); }} />
-        </IconField>
-        {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
-        <button className="btn btn-primary mt-5 w-full" disabled={busy}>
-          {busy ? <Spinner size={18} /> : 'Connect'}
-        </button>
-      </form>
-    </Shell>
+    <div className="mt-3 card overflow-hidden">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
+        onClick={() => setShow((v) => !v)}
+      >
+        <span className="inline-flex items-center gap-2">
+          <Link2 size={15} /> Store not connected? Add Supabase keys
+          {ok && <span className="text-green-600">✓ connected</span>}
+        </span>
+        <ChevronDown size={18} style={{ transform: show ? 'rotate(180deg)' : 'none' }} className="transition-transform" />
+      </button>
+      {show && (
+        <form onSubmit={submit} className="border-t border-line p-4">
+          <p className="mb-3 text-xs text-muted">
+            Best: set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{' '}
+            in Vercel. Or paste them here for this device.
+          </p>
+          <label className="label">Project URL</label>
+          <IconField icon={Link2}>
+            <input className="input pl-9" placeholder="https://xxxx.supabase.co" value={url}
+              onChange={(e) => { setUrl(e.target.value); setErr(''); }} />
+          </IconField>
+          <label className="label mt-3">anon public key</label>
+          <IconField icon={KeyRound}>
+            <textarea className="input min-h-16 pl-9 font-mono text-xs" placeholder="eyJhbGciOi..." value={anon}
+              onChange={(e) => { setAnon(e.target.value); setErr(''); }} />
+          </IconField>
+          {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+          <button className="btn btn-outline mt-3 w-full" disabled={busy}>
+            {busy ? <Spinner size={16} /> : 'Connect'}
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
 
 // First-time setup: enter email + password → we GENERATE the full SQL (with the
 // admin account baked in). The owner runs it in Supabase. Only someone with SQL
 // access can create the admin, so no one else can register.
-function SetupAdmin({ onReady }: { onReady: () => void }) {
+function SetupAdmin({
+  connected,
+  onConnected,
+  onReady,
+}: {
+  connected: boolean;
+  onConnected: () => void;
+  onReady: () => void;
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -148,7 +176,10 @@ function SetupAdmin({ onReady }: { onReady: () => void }) {
     const exists = await adminAccountExists();
     setChecking(false);
     if (exists === true) onReady();
-    else setErr("Couldn't find your admin account yet — make sure you pasted and ran the whole SQL in Supabase.");
+    else
+      setErr(
+        "Couldn't find your admin account yet — make sure you pasted and ran the whole SQL in Supabase, and that your store is connected below."
+      );
   }
 
   if (sql) {
@@ -174,6 +205,7 @@ function SetupAdmin({ onReady }: { onReady: () => void }) {
             ⚠️ This SQL contains your password — only paste it into your own Supabase, and don&apos;t save it publicly.
           </p>
           {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
+          {!connected && <ConnectKeys open onConnected={onConnected} />}
           <div className="mt-4 flex gap-2">
             <button className="btn btn-outline flex-1" onClick={() => setSql(null)}>Back</button>
             <button className="btn btn-primary flex-1" onClick={iRanIt} disabled={checking}>
@@ -219,6 +251,7 @@ function SetupAdmin({ onReady }: { onReady: () => void }) {
         {err && <p className="mt-3 text-sm text-red-600">{err}</p>}
         <button className="btn btn-primary mt-5 w-full">Generate my setup SQL</button>
       </form>
+      {!connected && <ConnectKeys open={false} onConnected={onConnected} />}
     </Shell>
   );
 }
