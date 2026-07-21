@@ -6,6 +6,7 @@ import { Spinner } from '@/components/Spinner';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/Confirm';
 import { Modal } from '@/components/Modal';
+import { Select } from '@/components/Select';
 import {
   getAllProducts,
   createProduct,
@@ -330,35 +331,70 @@ function ProductForm({
 
   return (
     <Modal open onClose={onClose} title={initial ? 'Edit product' : 'Add product'} size="lg">
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4 pb-2">
+        {/* Image first — big preview + upload */}
+        <div>
+          <label className="label">Photo</label>
+          <div className="flex items-center gap-4">
+            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-theme border border-line bg-bg">
+              {form.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.image_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-muted">
+                  <ImageOff size={26} />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <label className="btn btn-outline inline-flex w-full cursor-pointer items-center justify-center gap-1.5 text-sm sm:w-auto">
+                {uploading ? <Spinner size={16} /> : <><Upload size={15} /> Upload photo</>}
+                <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+              </label>
+              <input
+                className="input mt-2 text-xs"
+                placeholder="…or paste an image URL"
+                value={form.image_url}
+                onChange={(e) => set('image_url', e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="label">Name</label>
+          <input
+            className="input"
+            placeholder="Product name"
+            value={form.name}
+            onChange={(e) => set('name', e.target.value)}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">Name</label>
-            <input className="input" value={form.name} onChange={(e) => set('name', e.target.value)} />
+            <label className="label">Price ({currency})</label>
+            <input
+              className="input"
+              type="number"
+              inputMode="decimal"
+              value={form.price}
+              onChange={(e) => set('price', Number(e.target.value))}
+            />
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Price ({currency})</label>
-              <input
-                className="input"
-                type="number"
-                inputMode="decimal"
-                value={form.price}
-                onChange={(e) => set('price', Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="label">Stock</label>
-              <input
-                className="input"
-                type="number"
-                inputMode="numeric"
-                value={form.stock}
-                onChange={(e) => set('stock', Number(e.target.value))}
-              />
-            </div>
+          <div>
+            <label className="label">Stock</label>
+            <input
+              className="input"
+              type="number"
+              inputMode="numeric"
+              value={form.stock}
+              onChange={(e) => set('stock', Number(e.target.value))}
+            />
           </div>
+        </div>
 
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Discount %</label>
             <input
@@ -372,106 +408,95 @@ function ProductForm({
                 set('discount_percent', Math.max(0, Math.min(100, Number(e.target.value) || 0)))
               }
             />
-            {form.discount_percent > 0 && form.price > 0 && (
-              <p className="mt-1 text-xs text-muted">
-                Sale price:{' '}
-                <span className="font-semibold text-primary">
-                  {money(effectivePrice(form), currency)}
-                </span>{' '}
-                <span className="line-through">{money(form.price, currency)}</span>
-              </p>
-            )}
           </div>
-
           <div>
             <label className="label">Category</label>
             {categories.length === 0 ? (
-              <div className="rounded-theme border border-dashed border-line p-3 text-sm text-muted">
-                No categories yet. Add categories in <b>Settings → Categories</b> first.
+              <div className="rounded-theme border border-dashed border-line p-2.5 text-xs text-muted">
+                Add categories in <b>Settings</b> first.
               </div>
             ) : (
-              <select
-                className="input"
+              <Select
                 value={form.category}
-                onChange={(e) => set('category', e.target.value)}
-              >
-                {/* Keep the product's current category selectable even if it
-                    was removed from the managed list. */}
-                {form.category && !categories.includes(form.category) && (
-                  <option value={form.category}>{form.category} (removed)</option>
-                )}
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set('category', v)}
+                options={[
+                  ...(form.category && !categories.includes(form.category)
+                    ? [{ value: form.category, label: `${form.category} (removed)` }]
+                    : []),
+                  ...categories.map((c) => ({ value: c, label: c })),
+                ]}
+              />
             )}
           </div>
-
-          <div>
-            <label className="label">Description</label>
-            <textarea
-              className="input min-h-20"
-              value={form.description}
-              onChange={(e) => set('description', e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="label">Image</label>
-            <div className="flex items-center gap-3">
-              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-theme bg-bg">
-                {form.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={form.image_url} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-muted">
-                    <ImageOff size={20} />
-                  </div>
-                )}
-              </div>
-              <label className="btn btn-outline inline-flex cursor-pointer items-center gap-1.5 text-sm">
-                {uploading ? <Spinner size={16} /> : <><Upload size={15} /> Upload</>}
-                <input type="file" accept="image/*" className="hidden" onChange={onFile} />
-              </label>
-            </div>
-            <input
-              className="input mt-2 text-xs"
-              placeholder="…or paste an image URL"
-              value={form.image_url}
-              onChange={(e) => set('image_url', e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.is_active}
-                onChange={(e) => set('is_active', e.target.checked)}
-              />
-              <span className="text-sm">Visible in store</span>
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.is_featured}
-                onChange={(e) => set('is_featured', e.target.checked)}
-              />
-              <span className="text-sm">⭐ Featured</span>
-            </label>
-          </div>
         </div>
 
-        <div className="mt-5 flex gap-2">
-          <button className="btn btn-outline flex-1" onClick={onClose}>
-            {S.cancel}
-          </button>
-          <button className="btn btn-primary flex-1" onClick={save} disabled={saving || uploading}>
-            {saving ? <Spinner size={18} /> : S.save}
-          </button>
+        {form.discount_percent > 0 && form.price > 0 && (
+          <div className="-mt-1 rounded-theme bg-bg px-3 py-2 text-sm">
+            Sale price:{' '}
+            <span className="font-semibold text-primary">{money(effectivePrice(form), currency)}</span>{' '}
+            <span className="text-muted line-through">{money(form.price, currency)}</span>
+          </div>
+        )}
+
+        <div>
+          <label className="label">Description</label>
+          <textarea
+            className="input min-h-20"
+            placeholder="Short description (optional)"
+            value={form.description}
+            onChange={(e) => set('description', e.target.value)}
+          />
         </div>
+
+        <div className="flex flex-col gap-2">
+          <Toggle
+            label="Visible in store"
+            checked={form.is_active}
+            onChange={(v) => set('is_active', v)}
+          />
+          <Toggle
+            label="⭐ Featured product"
+            checked={form.is_featured}
+            onChange={(v) => set('is_featured', v)}
+          />
+        </div>
+      </div>
+
+      {/* Sticky footer so Save is always reachable on mobile */}
+      <div className="sticky bottom-0 -mx-5 -mb-5 flex gap-2 border-t border-line bg-card px-5 py-3">
+        <button className="btn btn-outline flex-1" onClick={onClose}>
+          {S.cancel}
+        </button>
+        <button className="btn btn-primary flex-1" onClick={save} disabled={saving || uploading}>
+          {saving ? <Spinner size={18} /> : S.save}
+        </button>
+      </div>
     </Modal>
+  );
+}
+
+function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-theme border border-line bg-bg px-3 py-2.5">
+      <span className="text-sm font-medium">{label}</span>
+      <span className="relative inline-block h-6 w-11 shrink-0">
+        <input
+          type="checkbox"
+          className="peer sr-only"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        <span className="absolute inset-0 rounded-full bg-line transition peer-checked:bg-primary" />
+        <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+      </span>
+    </label>
   );
 }
