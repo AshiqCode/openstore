@@ -17,16 +17,17 @@ should understand exactly what that means.
    That's expected — it's called the *anon public* key for a reason. RLS, not secrecy, is what
    keeps data safe.
 
-2. **Admin login = email + password (bcrypt in the DB).** Accounts live in the `admins` table with
-   bcrypt-hashed passwords, reachable only through `SECURITY DEFINER` functions (`admin_signup`,
-   `admin_login`, `admin_change_password`). The Supabase keys only *connect* the app — they are not
-   the admin login. A 30-day session flag is stored in the browser's `localStorage`.
+2. **Admin login = email + password, and only the owner can create it.** There is **no public
+   sign-up**. The admin row is created by a SQL script that the app generates with your chosen
+   email + password (bcrypt-hashed by Postgres). You run that script in the **Supabase SQL Editor** —
+   and since running SQL requires Supabase project access, only the store owner can ever create an
+   admin. The anon key can only `admin_login` / `admin_change_password` / `admin_exists`; it cannot
+   create accounts. The Supabase keys only *connect* the app — they are not the login. A 30-day
+   session flag is kept in the browser's `localStorage`.
 
    The remaining trade-off: table **writes still allow the anon role** (so the no-server admin panel
    can function). A determined person with your anon key could write to product/order/settings rows
-   directly — but they **cannot** read admin password hashes or forge a login. For a small store
-   this is an accepted trade-off. Once your own admin account exists, you can revoke open sign-up:
-   `revoke execute on function admin_signup(text, text) from anon;` (run in the SQL Editor).
+   directly — but they **cannot** read admin password hashes, forge a login, or create an admin.
 
 3. **Orders are readable with the anon key** (the admin panel lists them without a server). Don't
    collect data you wouldn't want a determined person to see. Customer name, phone, and address are
@@ -37,8 +38,8 @@ should understand exactly what that means.
 
 ## Recommendations
 
-- After creating your admin account, revoke open sign-up (see point 2) so no one else can register.
 - Use a strong, unique admin password — there is no email-based recovery.
+- Keep the generated setup SQL private (it contains your password) and don't save it in a public place.
 - Never expose your Supabase **service_role** key anywhere in this app.
 - Don't reuse your Supabase database password anywhere else.
 - Keep your Supabase project's **service_role** key secret — it is *never* used by this app and

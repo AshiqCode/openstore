@@ -88,6 +88,9 @@ create policy "public read images" on storage.objects for select using (bucket_i
 create policy "anon upload images" on storage.objects for insert with check (bucket_id = 'store-images');
 
 -- Admin account (store owner) — email + bcrypt password login.
+-- NOTE: there is NO public "sign up". The admin row is created by the owner's
+-- generated SQL (see the app's setup screen), so only someone who can run SQL
+-- in Supabase can create an admin. anon can only LOG IN, not create accounts.
 create extension if not exists pgcrypto;
 
 create table if not exists admins (
@@ -99,15 +102,10 @@ create table if not exists admins (
 
 alter table admins enable row level security;
 
-create or replace function admin_signup(p_email text, p_password text)
-returns text language plpgsql security definer set search_path = public, extensions as $$
-begin
-  if p_email is null or position('@' in p_email) = 0 then return 'invalid_email'; end if;
-  if p_password is null or length(p_password) < 6 then return 'weak_password'; end if;
-  if exists (select 1 from admins where lower(email) = lower(p_email)) then return 'exists'; end if;
-  insert into admins (email, password_hash) values (lower(p_email), crypt(p_password, gen_salt('bf')));
-  return 'ok';
-end; $$;
+create or replace function admin_exists()
+returns boolean language sql security definer set search_path = public, extensions as $$
+  select exists (select 1 from admins);
+$$;
 
 create or replace function admin_login(p_email text, p_password text)
 returns boolean language plpgsql security definer set search_path = public, extensions as $$
@@ -129,9 +127,9 @@ begin
   return 'ok';
 end; $$;
 
-grant execute on function admin_signup(text, text) to anon, authenticated;
 grant execute on function admin_login(text, text) to anon, authenticated;
 grant execute on function admin_change_password(text, text, text) to anon, authenticated;
+grant execute on function admin_exists() to anon, authenticated;
 
 -- Customer accounts (shoppers) — DB-backed profile, cart and favorites.
 create extension if not exists pgcrypto;
@@ -188,3 +186,25 @@ grant execute on function customer_login(text, text) to anon, authenticated;
 grant execute on function customer_update(uuid, text, text, text) to anon, authenticated;
 grant execute on function customer_sync(uuid, jsonb, jsonb) to anon, authenticated;
 `;
+
+// Escape a value for a single-quoted Postgres string literal.
+function sqlLiteral(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+// Build the FULL setup SQL with the owner's admin account baked in. The owner
+// pastes this into the Supabase SQL Editor — since only someone with SQL access
+// can run it, this is what guarantees only the owner can create the admin.
+// The password is hashed by Postgres (bcrypt) when the script runs.
+export function buildAdminSetupSql(email: string, password: string): string {
+  const e = sqlLiteral(email.trim().toLowerCase());
+  const p = sqlLiteral(password);
+  return `${SETUP_SQL}
+-- ── Create your admin login (this row is what lets you log in) ─────────────
+set search_path = public, extensions;
+insert into admins (email, password_hash)
+values ('${e}', crypt('${p}', gen_salt('bf')))
+on conflict (email) do update set password_hash = excluded.password_hash;
+`;
+}
+

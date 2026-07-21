@@ -49,26 +49,16 @@ export async function connectWithKeys(url: string, anonKey: string): Promise<Aut
 
 // ---- Admin account (email + password via RPC) ------------------------------
 
-export async function adminSignup(email: string, password: string): Promise<AuthResult> {
+// Whether an admin account already exists. Returns:
+//   true  → an admin exists → show the login form
+//   false → connected but no admin yet → show the "generate setup SQL" step
+//   null  → couldn't tell (DB not set up / function missing) → also show setup
+export async function adminAccountExists(): Promise<boolean | null> {
   const supabase = await getSupabase();
-  if (!supabase) return { ok: false, error: 'Store not connected.' };
-  const { data, error } = await supabase.rpc('admin_signup', {
-    p_email: email.trim(),
-    p_password: password,
-  });
-  if (error) return { ok: false, error: rpcError(error.message) };
-  switch (data) {
-    case 'ok':
-      return adminLogin(email, password);
-    case 'exists':
-      return { ok: false, error: 'An admin with this email already exists. Log in instead.' };
-    case 'weak_password':
-      return { ok: false, error: 'Password must be at least 6 characters.' };
-    case 'invalid_email':
-      return { ok: false, error: 'Please enter a valid email address.' };
-    default:
-      return { ok: false, error: 'Could not create the admin account.' };
-  }
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('admin_exists');
+  if (error) return null;
+  return data === true;
 }
 
 export async function adminLogin(email: string, password: string): Promise<AuthResult> {

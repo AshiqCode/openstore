@@ -137,16 +137,17 @@ create table if not exists admins (
 
 alter table admins enable row level security;
 
--- Create the admin account. Returns 'ok' | 'exists' | 'weak_password' | 'invalid_email'.
-create or replace function admin_signup(p_email text, p_password text)
-returns text language plpgsql security definer set search_path = public, extensions as $$
-begin
-  if p_email is null or position('@' in p_email) = 0 then return 'invalid_email'; end if;
-  if p_password is null or length(p_password) < 6 then return 'weak_password'; end if;
-  if exists (select 1 from admins where lower(email) = lower(p_email)) then return 'exists'; end if;
-  insert into admins (email, password_hash) values (lower(p_email), crypt(p_password, gen_salt('bf')));
-  return 'ok';
-end; $$;
+-- IMPORTANT: there is NO public sign-up function. The admin account is created
+-- by the owner's generated SQL (the app's setup screen builds it), or manually
+-- at the bottom of this file. Because creating it requires running SQL here,
+-- ONLY someone with Supabase access (the owner) can ever create an admin.
+-- The anon key can LOG IN but cannot create accounts.
+
+-- Whether an admin account already exists (lets the app show login vs setup).
+create or replace function admin_exists()
+returns boolean language sql security definer set search_path = public, extensions as $$
+  select exists (select 1 from admins);
+$$;
 
 create or replace function admin_login(p_email text, p_password text)
 returns boolean language plpgsql security definer set search_path = public, extensions as $$
@@ -168,9 +169,17 @@ begin
   return 'ok';
 end; $$;
 
-grant execute on function admin_signup(text, text) to anon, authenticated;
 grant execute on function admin_login(text, text) to anon, authenticated;
 grant execute on function admin_change_password(text, text, text) to anon, authenticated;
+grant execute on function admin_exists() to anon, authenticated;
+
+-- ── Create your admin login (edit the email + password, then this runs) ─────
+-- The app generates this line for you with your chosen credentials. If running
+-- this file by hand, change the two values below before running.
+set search_path = public, extensions;
+insert into admins (email, password_hash)
+values ('owner@example.com', crypt('change-this-password', gen_salt('bf')))
+on conflict (email) do update set password_hash = excluded.password_hash;
 
 -- ---------------------------------------------------------------------------
 -- Customer accounts (shoppers). Email + bcrypt password, NO email/SMTP.

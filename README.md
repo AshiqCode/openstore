@@ -72,19 +72,21 @@ a working store automatically (no `config.json` step):
 
 ## ❓ FAQ
 
-**How do I log in to the admin panel?**
-Open `your-site.com/admin`. The first time, run the setup SQL, then use **Create account** to make
-your admin login (**email + password**, stored in your Supabase database). After that, just log in
-with that email and password. The Supabase keys only connect the store — they aren't your login.
+**How do I set up my admin login?**
+Open `your-site.com/admin` the first time. It asks for your **email + password**, then **generates
+a SQL script** with your login baked in. You paste that into your **Supabase → SQL Editor** and run
+it once. Because only someone with Supabase access can run SQL, **only you (the owner) can ever
+create the admin** — there is no public sign-up. After that, `/admin` just shows a login form.
 
-**Can I log in from another device?**
-Yes. As long as the store is connected (env vars or `config.json`), log in with the same email and
-password on any device.
+**How do I log in after that?**
+Enter your email + password on `your-site.com/admin`. Works from any device, as long as the store
+is connected (env vars or `config.json`). The Supabase keys only connect the store — they aren't
+your login.
 
 **I forgot my admin password.**
-There's no email reset. Change it while logged in (Admin → Password), or reset it in Supabase:
-run `select admin_change_password('you@example.com','oldpass','newpass');` in the SQL Editor, or
-delete your row from the `admins` table and create the account again.
+There's no email reset. Change it while logged in (Admin → Password), or reset it in Supabase's SQL
+Editor: `select admin_change_password('you@example.com','oldpass','newpass');`, or delete your row
+from the `admins` table and run the setup SQL again with a new password.
 
 **Can I add products from my phone?**
 Yes — the whole admin panel is mobile-first. Just open `your-site.com/admin`.
