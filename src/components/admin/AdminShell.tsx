@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { isLoggedIn, signOut, getAdminEmail } from '@/lib/auth';
 import { FullPageSpinner } from '@/components/Spinner';
-import { LanguageToggle } from '@/components/LanguageToggle';
 import { useT } from '@/components/LanguageProvider';
 import { BUILDER_NAME, BUILDER_URL } from '@/lib/brand';
 
@@ -101,7 +100,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <LanguageToggle />
             <Link
               href="/"
               target="_blank"

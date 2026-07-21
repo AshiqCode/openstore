@@ -3,10 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ShoppingCart, Heart, Home, PackageSearch, Info, User } from 'lucide-react';
+import { ShoppingCart, Heart, Home, PackageSearch, Info, User, Menu, X, Store } from 'lucide-react';
 import { cartCount, onCartChange } from '@/lib/cart';
 import { favoritesCount, onFavoritesChange } from '@/lib/favorites';
-import { LanguageToggle } from '@/components/LanguageToggle';
 import { useCustomer } from '@/components/CustomerProvider';
 import type { Settings } from '@/lib/types';
 
@@ -23,6 +22,7 @@ export function StoreNav({ settings }: { settings: Settings }) {
   const customer = useCustomer();
   const [count, setCount] = useState(0);
   const [favs, setFavs] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     setCount(cartCount());
@@ -35,28 +35,41 @@ export function StoreNav({ settings }: { settings: Settings }) {
     };
   }, []);
 
+  // Close the drawer when navigating, and lock body scroll while it's open.
+  useEffect(() => setMenuOpen(false), [pathname]);
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [menuOpen]);
+
+  const storeName = settings.store_name || 'OPEN STORE';
+
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-card/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-        <Link href="/" className="flex min-w-0 items-center gap-2">
-          {settings.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={settings.logo_url}
-              alt={settings.store_name}
-              className="h-9 w-9 rounded-theme object-cover"
-            />
-          ) : null}
-          <span className="truncate text-lg font-bold tracking-tight">
-            {settings.store_name || 'OPEN STORE'}
-          </span>
-        </Link>
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            className="btn-icon text-ink hover:bg-bg md:hidden"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+          <Link href="/" className="flex min-w-0 items-center gap-2">
+            {settings.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={settings.logo_url} alt={storeName} className="h-9 w-9 rounded-theme object-cover" />
+            ) : null}
+            <span className="truncate text-lg font-bold tracking-tight">{storeName}</span>
+          </Link>
+        </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <LanguageToggle />
           <Link
             href="/account"
-            className="btn-icon text-ink hover:bg-bg"
+            className="btn-icon hidden text-ink hover:bg-bg sm:inline-flex"
             aria-label="Account"
             title={customer ? customer.name || customer.email : 'Account'}
           >
@@ -71,9 +84,9 @@ export function StoreNav({ settings }: { settings: Settings }) {
         </div>
       </div>
 
-      {/* Secondary nav links */}
-      <nav className="border-t border-line">
-        <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-2 py-1">
+      {/* Desktop nav links */}
+      <nav className="hidden border-t border-line md:block">
+        <div className="mx-auto flex max-w-5xl items-center gap-1 px-2 py-1">
           {NAV_LINKS.map((l) => {
             const active = pathname === l.href;
             const Icon = l.icon;
@@ -92,6 +105,70 @@ export function StoreNav({ settings }: { settings: Settings }) {
         </div>
       </nav>
 
+      {/* Mobile sidebar drawer */}
+      {menuOpen && (
+        <div className="md:hidden">
+          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
+          <aside className="animate-slide-in fixed left-0 top-0 z-50 flex h-full w-72 max-w-[82%] flex-col border-r border-line bg-card shadow-2xl">
+            <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                {settings.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={settings.logo_url} alt="" className="h-8 w-8 rounded-theme object-cover" />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-theme bg-primary text-[color:var(--color-primary-fg)]">
+                    <Store size={16} />
+                  </div>
+                )}
+                <span className="truncate font-bold">{storeName}</span>
+              </div>
+              <button className="btn-icon text-muted hover:bg-bg hover:text-ink" onClick={() => setMenuOpen(false)} aria-label="Close menu">
+                <X size={20} />
+              </button>
+            </div>
+
+            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
+              {NAV_LINKS.map((l) => {
+                const active = pathname === l.href;
+                const Icon = l.icon;
+                return (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className={`flex items-center gap-3 rounded-theme px-3 py-2.5 text-sm font-medium transition ${
+                      active ? 'bg-primary text-[color:var(--color-primary-fg)]' : 'text-ink hover:bg-bg'
+                    }`}
+                  >
+                    <Icon size={18} /> {l.label}
+                  </Link>
+                );
+              })}
+              <Link
+                href="/cart"
+                className="mt-1 flex items-center justify-between rounded-theme px-3 py-2.5 text-sm font-medium text-ink hover:bg-bg"
+              >
+                <span className="flex items-center gap-3">
+                  <ShoppingCart size={18} /> Cart
+                </span>
+                {count > 0 && (
+                  <span
+                    className="flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold"
+                    style={{ background: 'var(--color-primary)', color: 'var(--color-primary-fg)' }}
+                  >
+                    {count}
+                  </span>
+                )}
+              </Link>
+            </nav>
+
+            {customer && (
+              <div className="border-t border-line px-4 py-3 text-xs text-muted">
+                Signed in as <span className="font-medium text-ink">{customer.name || customer.email}</span>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
     </header>
   );
 }
