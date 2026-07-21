@@ -8,7 +8,8 @@ import { FullPageSpinner } from '@/components/Spinner';
 import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { getActiveProducts, getSettings } from '@/lib/store';
-import { Store, Star, Search, X } from 'lucide-react';
+import { Store, Star, Search, X, ArrowUpDown } from 'lucide-react';
+import { Select } from '@/components/Select';
 import { DEFAULT_SETTINGS, parseCategories, effectivePrice, type Product, type Settings } from '@/lib/types';
 import { useT } from '@/components/LanguageProvider';
 
@@ -141,16 +142,18 @@ export default function HomePage() {
               </button>
             )}
           </div>
-          <select
-            className="input w-full py-2.5 sm:w-48"
+          <Select
             value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-          >
-            <option value="featured">Sort: Featured</option>
-            <option value="newest">Newest</option>
-            <option value="price_asc">Price: low to high</option>
-            <option value="price_desc">Price: high to low</option>
-          </select>
+            onChange={setSort}
+            icon={<ArrowUpDown size={15} className="shrink-0 text-muted" />}
+            className="w-full sm:w-56"
+            options={[
+              { value: 'featured', label: 'Featured' },
+              { value: 'newest', label: 'Newest' },
+              { value: 'price_asc', label: 'Price: low to high' },
+              { value: 'price_desc', label: 'Price: high to low' },
+            ]}
+          />
         </div>
 
         {/* Category chips */}
