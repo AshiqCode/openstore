@@ -460,11 +460,9 @@ function ProductForm({
             onChange={(v) => set('is_featured', v)}
           />
         </div>
-      </div>
 
-      {/* Sticky footer so Save is always reachable on mobile */}
-      <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-card px-5 py-3">
-        <div className="mx-auto flex w-full max-w-2xl gap-2">
+        {/* Save / Cancel — right below the toggles (not fixed) */}
+        <div className="mt-2 flex gap-2">
           <button className="btn btn-outline flex-1" onClick={onClose}>
             {S.cancel}
           </button>

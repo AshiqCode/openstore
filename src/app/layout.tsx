@@ -6,6 +6,7 @@ import { ConfirmProvider } from '@/components/Confirm';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { CustomerProvider } from '@/components/CustomerProvider';
 import { DisclaimerNotice } from '@/components/DisclaimerNotice';
+import { FaviconSetter } from '@/components/FaviconSetter';
 import { THEME_BOOT_SCRIPT } from '@/lib/themes';
 
 export const metadata: Metadata = {
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ToastProvider>
             <ConfirmProvider>
               <CustomerProvider>
+                <FaviconSetter />
                 {/* Gates content until the theme is known (loader on first visit). */}
                 <ThemeGate>
                   <DisclaimerNotice />

@@ -41,6 +41,7 @@ export type Settings = {
   currency: string;
   banner_text: string;
   logo_url: string;
+  favicon_url: string;
   delivery_charges: string;
   about_text: string;
   instagram_link: string;
@@ -67,6 +68,7 @@ export const SETTINGS_KEYS: (keyof Settings)[] = [
   'currency',
   'banner_text',
   'logo_url',
+  'favicon_url',
   'delivery_charges',
   'about_text',
   'instagram_link',
@@ -91,6 +93,7 @@ export const DEFAULT_SETTINGS: Settings = {
   currency: 'Rs.',
   banner_text: '',
   logo_url: '',
+  favicon_url: '',
   delivery_charges: '0',
   about_text: '',
   instagram_link: '',

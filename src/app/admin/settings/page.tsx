@@ -94,6 +94,25 @@ function SettingsForm() {
     setUploading(false);
   }
 
+  // Favicon (browser tab icon). Saved immediately so it applies right away.
+  async function onFavicon(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const blob = await compressImage(file, 64, 0.9);
+      const url = await uploadImage(blob, 'favicon');
+      if (url) {
+        set('favicon_url', url);
+        await saveSettings({ favicon_url: url });
+        toast('Favicon updated', 'success');
+      } else toast('Upload failed', 'error');
+    } catch {
+      toast('Upload failed', 'error');
+    }
+    setUploading(false);
+  }
+
   async function save() {
     setSaving(true);
     const ok = await saveSettings({
@@ -101,6 +120,7 @@ function SettingsForm() {
       tagline: settings.tagline,
       currency: settings.currency,
       logo_url: settings.logo_url,
+      favicon_url: settings.favicon_url,
       store_open: settings.store_open,
       seller_name: settings.seller_name,
       about_text: settings.about_text,
@@ -175,6 +195,29 @@ function SettingsForm() {
               </label>
             </div>
           </div>
+
+          {/* Favicon (browser tab icon) */}
+          <div>
+            <label className="label">Favicon (browser tab icon)</label>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme border border-line bg-bg">
+                {settings.favicon_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={settings.favicon_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <ImageOff size={16} className="text-muted" />
+                )}
+              </div>
+              <label className="btn btn-outline inline-flex cursor-pointer items-center gap-1.5 text-sm">
+                {uploading ? <Spinner size={16} /> : <><Upload size={15} /> Upload favicon</>}
+                <input type="file" accept="image/*" className="hidden" onChange={onFavicon} />
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              Small square image (PNG). Applies to the browser tab immediately.
+            </p>
+          </div>
+
           {field({ key: 'store_name', label: 'Store name' })}
           {field({ key: 'tagline', label: 'Tagline', placeholder: 'Best deals in town' })}
           {field({ key: 'currency', label: 'Currency prefix', placeholder: 'Rs.' })}

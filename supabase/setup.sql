@@ -54,6 +54,7 @@ insert into settings (key, value) values
   ('currency', 'Rs.'),
   ('banner_text', ''),
   ('logo_url', ''),
+  ('favicon_url', ''),
   ('delivery_charges', '0'),
   ('about_text', ''),
   ('instagram_link', ''),
