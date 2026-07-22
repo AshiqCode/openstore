@@ -24,22 +24,36 @@ Two ways — pick one, both are free and both run on **Vercel**.
 
 > Maintainers: replace `AshiqCode/openstore` in the button link with **your** repo.
 
-### Option B — No GitHub account (upload the folder to Vercel)
+### Option B — Build it yourself, then upload (no GitHub connection to Vercel)
 
-Don't want any Git account? Deploy the ready-made **`out`** folder straight to Vercel with one command —
-Vercel signs you in by **email**, no Git needed.
+Prefer not to connect a Git provider to Vercel? Get the project from GitHub, build it once, and
+deploy the output. Vercel signs you in by **email**, no Git needed.
 
-1. Download [**`out.zip`**](../../raw/main/out.zip) and unzip it — you get an **`out`** folder.
-2. Install **[Node.js](https://nodejs.org)** (free), then open a terminal in that folder and run:
+1. **Get the code** — either way works:
+   - **Clone it:** `git clone https://github.com/AshiqCode/openstore.git`
+   - **or download it:** on the [GitHub page](https://github.com/AshiqCode/openstore), click the green
+     **`Code ▾` → Download ZIP**, then unzip it.
+2. Install **[Node.js](https://nodejs.org)** (free), open a terminal in the project folder, and build
+   the static site:
+
+   ```bash
+   npm install
+   npm run build      # creates the ./out folder
+   ```
+
+3. Deploy the `out` folder to Vercel:
 
    ```bash
    npx vercel deploy --prod out
    ```
 
    Follow the email sign-in link. Vercel uploads the folder and gives you a live `*.vercel.app` URL.
-3. Open **`your-site.vercel.app/admin`** → the setup wizard links your Supabase project and gives you
+4. Open **`your-site.vercel.app/admin`** → the setup screen links your Supabase project and gives you
    the SQL to run. On the last step, **download `config.json`**, put it in the `out` folder, and run
-   the same command again so every visitor gets a working store.
+   the deploy command again so every visitor gets a working store.
+
+> Tip: set the two environment variables **before** building (see the next section) and every visitor
+> gets a working store automatically — you can skip the `config.json` step entirely.
 
 > First need a database? Create a free project at [supabase.com](https://supabase.com) (~1 minute),
 > then copy your **Project URL** and **anon public key** from Project Settings → API.
