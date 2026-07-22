@@ -134,8 +134,7 @@ npm run build    # static export to ./out
 ```
 
 Everything runs client-side against Supabase. Static export (`output: 'export'`) — no API routes,
-no server. See [`CLAUDE.md`](CLAUDE.md) for architecture and [`SECURITY.md`](SECURITY.md) for the
-honest security trade-offs.
+no server. See [`SECURITY.md`](SECURITY.md) for the honest security trade-offs.
 
 ---
 

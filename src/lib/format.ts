@@ -17,7 +17,7 @@ export function toWaNumber(raw: string): string {
   return digits;
 }
 
-// Build the WhatsApp order message exactly per CLAUDE.md.
+// Build the WhatsApp order message sent to the store owner at checkout.
 export function buildOrderMessage(opts: {
   storeName: string;
   items: OrderItem[];
