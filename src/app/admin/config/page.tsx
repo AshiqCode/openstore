@@ -14,7 +14,6 @@ import {
   type StoreConfig,
 } from '@/lib/config';
 import { getSupabase } from '@/lib/supabase';
-import { DISCLAIMER_LONG } from '@/lib/brand';
 
 export default function ConfigPage() {
   return (
@@ -143,13 +142,6 @@ function ConfigPanel() {
         </div>
       </div>
 
-      {/* Open-source disclaimer */}
-      <div className="mt-4 rounded-theme border border-amber-300 bg-amber-50 p-4">
-        <div className="flex items-center gap-2 font-semibold text-amber-800">
-          <AlertTriangle size={18} /> Disclaimer — please read
-        </div>
-        <p className="mt-2 text-sm leading-relaxed text-amber-800">{DISCLAIMER_LONG}</p>
-      </div>
     </div>
   );
 }

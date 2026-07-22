@@ -5,7 +5,6 @@ import { ToastProvider } from '@/components/Toast';
 import { ConfirmProvider } from '@/components/Confirm';
 import { LanguageProvider } from '@/components/LanguageProvider';
 import { CustomerProvider } from '@/components/CustomerProvider';
-import { DisclaimerNotice } from '@/components/DisclaimerNotice';
 import { FaviconSetter } from '@/components/FaviconSetter';
 import { PWARegister } from '@/components/PWARegister';
 import { THEME_BOOT_SCRIPT } from '@/lib/themes';
@@ -49,7 +48,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <PWARegister />
                 {/* Gates content until the theme is known (loader on first visit). */}
                 <ThemeGate>
-                  <DisclaimerNotice />
                   {children}
                 </ThemeGate>
               </CustomerProvider>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Camera, MessageCircle, ThumbsUp, Music2, Mail, MapPin, type LucideIcon } from 'lucide-react';
-import { BUILDER_NAME, BUILDER_URL, DISCLAIMER_SHORT } from '@/lib/brand';
+import { DISCLAIMER_SHORT } from '@/lib/brand';
 import type { Settings } from '@/lib/types';
 
 export function StoreFooter({ settings }: { settings: Settings }) {
@@ -61,17 +61,6 @@ export function StoreFooter({ settings }: { settings: Settings }) {
           )}
         </div>
 
-        <div className="mt-1 opacity-80">
-          Built by{' '}
-          <a
-            href={BUILDER_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold text-primary hover:underline"
-          >
-            {BUILDER_NAME}
-          </a>
-        </div>
         <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed opacity-70">
           {DISCLAIMER_SHORT}
         </p>

@@ -21,7 +21,6 @@ import { isLoggedIn, signOut, getAdminEmail } from '@/lib/auth';
 import { FullPageSpinner } from '@/components/Spinner';
 import { MobileDrawer } from '@/components/MobileDrawer';
 import { useT } from '@/components/LanguageProvider';
-import { BUILDER_NAME, BUILDER_URL } from '@/lib/brand';
 
 // Wraps every authenticated admin page: guards the session and renders the
 // professional sidebar + top bar shell.
@@ -126,17 +125,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <aside className="hidden w-56 shrink-0 md:block">
           <div className="sticky top-20">
             <NavList />
-            <div className="mt-6 border-t border-line pt-4 text-xs text-muted">
-              Built by{' '}
-              <a
-                href={BUILDER_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-primary hover:underline"
-              >
-                {BUILDER_NAME}
-              </a>
-            </div>
           </div>
         </aside>
 
