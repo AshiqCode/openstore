@@ -82,7 +82,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <StoreNav settings={settings} />
+      <StoreNav settings={settings} loading={loading} />
 
       {storeClosed && (
         <div className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-white">
@@ -93,19 +93,28 @@ export default function HomePage() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         {/* Hero banner */}
         <section className="hero-tint card relative mb-6 overflow-hidden p-8 sm:p-12">
-          <div className="relative z-10 max-w-2xl">
-            <span className="chip mb-3 inline-flex items-center gap-1.5 text-xs">
-              <Store size={13} /> {settings.tagline || 'Online store'}
-            </span>
-            <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
-              {settings.store_name || 'OPEN STORE'}
-            </h1>
-            {settings.about_text ? (
-              <p className="mt-3 text-base text-muted">{settings.about_text}</p>
-            ) : (
-              <p className="mt-3 text-base text-muted">{S.welcomeBrowse}</p>
-            )}
-          </div>
+          {loading ? (
+            // Skeleton while store data loads — avoids flashing default placeholder text.
+            <div className="relative z-10 max-w-2xl">
+              <div className="skeleton mb-3 h-6 w-32 rounded-full" />
+              <div className="skeleton h-9 w-2/3 max-w-sm" />
+              <div className="skeleton mt-4 h-4 w-full max-w-md" />
+            </div>
+          ) : (
+            <div className="relative z-10 max-w-2xl">
+              <span className="chip mb-3 inline-flex items-center gap-1.5 text-xs">
+                <Store size={13} /> {settings.tagline || 'Online store'}
+              </span>
+              <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
+                {settings.store_name || 'OPEN STORE'}
+              </h1>
+              {settings.about_text ? (
+                <p className="mt-3 text-base text-muted">{settings.about_text}</p>
+              ) : (
+                <p className="mt-3 text-base text-muted">{S.welcomeBrowse}</p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Featured (hidden while searching / filtering) */}

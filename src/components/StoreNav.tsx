@@ -18,7 +18,7 @@ const NAV_LINKS = [
   { href: '/about', label: 'About', icon: Info },
 ];
 
-export function StoreNav({ settings }: { settings: Settings }) {
+export function StoreNav({ settings, loading = false }: { settings: Settings; loading?: boolean }) {
   const pathname = usePathname();
   const customer = useCustomer();
   const [count, setCount] = useState(0);
@@ -53,13 +53,21 @@ export function StoreNav({ settings }: { settings: Settings }) {
           >
             <Menu size={20} />
           </button>
-          <Link href="/" className="flex min-w-0 items-center gap-2">
-            {settings.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={settings.logo_url} alt={storeName} className="h-9 w-9 rounded-theme object-cover" />
-            ) : null}
-            <span className="truncate text-lg font-bold tracking-tight">{storeName}</span>
-          </Link>
+          {loading ? (
+            // Skeleton while store data loads — avoids flashing the default name.
+            <div className="flex items-center gap-2">
+              <div className="skeleton h-9 w-9 rounded-theme" />
+              <div className="skeleton h-5 w-28" />
+            </div>
+          ) : (
+            <Link href="/" className="flex min-w-0 items-center gap-2">
+              {settings.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={settings.logo_url} alt={storeName} className="h-9 w-9 rounded-theme object-cover" />
+              ) : null}
+              <span className="truncate text-lg font-bold tracking-tight">{storeName}</span>
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
