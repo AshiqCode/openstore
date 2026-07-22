@@ -1,51 +1,47 @@
 # Security — honest notes
 
-OPEN STORE trades some security hardness for radical simplicity: **no server, no build step,
-no login system to manage.** This is the right call for a small student/seller store, but you
-should understand exactly what that means.
+OPEN STORE runs with **no server and no build step**, yet still keeps your data private by relying on
+**Supabase Auth + Row Level Security (RLS)** — the database itself enforces who can do what.
 
 ## What protects your store
 
-- **Supabase Row Level Security (RLS)** is the real boundary. The SQL in `supabase/setup.sql`
-  enables RLS on every table and defines exactly what the public anon key can do.
-- **Public visitors can:** read products & settings, place (insert) orders, view images.
-- **Public visitors cannot:** read other people's orders through the normal store.
+- **Row Level Security (RLS)** is the real boundary. The SQL in `supabase/setup.sql` enables RLS on
+  every table and defines exactly what each role can do.
+- **The public anon key can:** read products & settings, place (insert) orders, view images, and sign
+  up / log in *customer* accounts. Nothing else.
+- **The public anon key CANNOT:** read orders (customer names, phones, addresses), edit or delete
+  products, change settings, or upload images. Those require a logged-in admin.
+- **Admin = a real Supabase Auth user.** Logging in issues a JWT, and the write/read-orders policies
+  are scoped `to authenticated`. So only the logged-in owner can manage the store or see orders.
+
+## How the admin is created
+
+There is **no public sign-up**. You create your single admin in the Supabase dashboard
+(**Authentication → Users → Add user**). Since that requires Supabase project access, only the store
+owner can ever create an admin. The Supabase keys only *connect* the app — they are not the login.
 
 ## The honest trade-offs
 
-1. **The anon key is public by design.** It ships inside `config.json` in your deployed folder.
-   That's expected — it's called the *anon public* key for a reason. RLS, not secrecy, is what
-   keeps data safe.
+1. **The anon key is public by design.** It's inlined into the site's JavaScript (it's called the
+   *anon public* key for a reason). That's expected and safe — **RLS, not secrecy, is what protects
+   data.** With the policies above, a person holding your anon key still cannot read orders or edit
+   your catalog.
 
-2. **Admin login = email + password, and only the owner can create it.** There is **no public
-   sign-up**. The admin row is created by a SQL script that the app generates with your chosen
-   email + password (bcrypt-hashed by Postgres). You run that script in the **Supabase SQL Editor** —
-   and since running SQL requires Supabase project access, only the store owner can ever create an
-   admin. The anon key can only `admin_login` / `admin_change_password` / `admin_exists`; it cannot
-   create accounts. The Supabase keys only *connect* the app — they are not the login. A 30-day
-   session flag is kept in the browser's `localStorage`.
+2. **`service_role` must stay secret.** It bypasses RLS entirely. This app never uses it — never place
+   it in `config.json`, env vars read by the browser, or anywhere client-side.
 
-   The remaining trade-off: table **writes still allow the anon role** (so the no-server admin panel
-   can function). A determined person with your anon key could write to product/order/settings rows
-   directly — but they **cannot** read admin password hashes, forge a login, or create an admin.
-
-3. **Orders are readable with the anon key** (the admin panel lists them without a server). Don't
-   collect data you wouldn't want a determined person to see. Customer name, phone, and address are
-   stored — that's inherent to taking delivery orders.
-
-4. **Guard your keys and password.** The anon key is public by design (it connects the store); never
-   expose your **service_role** key. Use a strong admin password — there is no email-based reset.
+3. **Customer accounts** (shoppers) use a lightweight bcrypt table via `SECURITY DEFINER` functions,
+   not Supabase Auth. Passwords are hashed; the functions never return the hash. This is honest,
+   lightweight security appropriate for a small store — not a bank.
 
 ## Recommendations
 
-- Use a strong, unique admin password — there is no email-based recovery.
-- Keep the generated setup SQL private (it contains your password) and don't save it in a public place.
+- Use a strong, unique admin password. Reset it in **Authentication → Users** if needed.
 - Never expose your Supabase **service_role** key anywhere in this app.
-- Don't reuse your Supabase database password anywhere else.
-- Keep your Supabase project's **service_role** key secret — it is *never* used by this app and
-  must never be placed in `config.json`.
-- If you handle sensitive data or real payment info, this project is **not** the right tool —
-  use a hosted platform with server-side auth and PCI compliance.
+- Re-run `supabase/setup.sql` if you deployed an older version — it upgrades the old open policies to
+  the locked-down set (it drops the previous `anon write` / `anon read orders` policies).
+- If you handle real payment info or highly sensitive data, use a hosted platform with server-side
+  auth and PCI compliance — that's outside this project's scope.
 
 ## Reporting
 

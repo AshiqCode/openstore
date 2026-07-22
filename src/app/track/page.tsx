@@ -39,7 +39,7 @@ function TrackInner() {
     if (guard !== 'ready') return;
     getSettings().then(setSettings);
     if (customer) {
-      getOrdersForCustomer(customer.email).then((o) => {
+      getOrdersForCustomer(customer.id).then((o) => {
         setOrders(o);
         setLoading(false);
       });

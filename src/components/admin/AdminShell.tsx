@@ -43,12 +43,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   ];
 
   useEffect(() => {
-    if (!isLoggedIn()) {
-      router.replace('/admin');
-      return;
-    }
-    setChecked(true);
-    setEmail(getAdminEmail());
+    let active = true;
+    (async () => {
+      if (!(await isLoggedIn())) {
+        router.replace('/admin');
+        return;
+      }
+      if (!active) return;
+      setChecked(true);
+      setEmail(await getAdminEmail());
+    })();
+    return () => {
+      active = false;
+    };
   }, [router, pathname]);
 
   if (!checked) return <FullPageSpinner />;
@@ -109,8 +116,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </Link>
             <button
               className="btn btn-outline inline-flex items-center gap-1.5 px-3 py-1.5 text-sm"
-              onClick={() => {
-                signOut();
+              onClick={async () => {
+                await signOut();
                 router.replace('/admin');
               }}
             >

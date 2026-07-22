@@ -14,10 +14,13 @@ let cachedKey = '';
 function makeClient(config: StoreConfig): SupabaseClient {
   return createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
-      // We don't use Supabase Auth — admin login is a custom DB table + RPC
-      // (see lib/auth.ts). Don't persist/refresh any auth session.
-      persistSession: false,
-      autoRefreshToken: false,
+      // Admin logs in with Supabase Auth (see lib/auth.ts). Persist and refresh
+      // the session so the JWT authenticates writes (RLS gates them to the
+      // logged-in admin). detectSessionInUrl is off — we use password login, not
+      // magic links, and the store uses ?id= query params for product routes.
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
     },
   });
 }

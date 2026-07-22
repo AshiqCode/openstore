@@ -1,8 +1,10 @@
-// Admin auth = email + password, stored in the `admins` table (see setup.sql).
+// Admin auth = Supabase Auth (email + password).
 //
-// The Supabase keys only CONNECT the app (via env vars / config.json). The store
-// owner logs in with an email + password — hashed with bcrypt server-side via
-// SECURITY DEFINER RPC functions (no email/SMTP, no key typing).
+// The store owner creates ONE admin user in the Supabase dashboard
+// (Authentication → Users → Add user). There is no public sign-up in the app,
+// so only someone with Supabase access can create the admin. Logging in issues
+// a real JWT, and RLS gates every write (and reading orders) to that logged-in
+// admin — the public anon key can only read products/settings and place orders.
 //
 // `connectWithKeys` is a fallback for stores deployed WITHOUT env vars or a
 // baked config.json: it saves the keys to this browser so the owner can reach
@@ -12,15 +14,6 @@ import { getSupabase, makeTempClient, resetSupabase } from './supabase';
 import { writeLocalConfig } from './config';
 
 export type AuthResult = { ok: boolean; error?: string };
-
-const SESSION_KEY = 'admin_session';
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-function rpcError(message: string): string {
-  if (/could not find the function|does not exist|schema cache/i.test(message))
-    return 'Setup not complete — run the setup SQL in Supabase first.';
-  return message;
-}
 
 // ---- Connect (config fallback when there are no env vars / config.json) ----
 
@@ -47,99 +40,64 @@ export async function connectWithKeys(url: string, anonKey: string): Promise<Aut
   return { ok: true };
 }
 
-// ---- Admin account (email + password via RPC) ------------------------------
-
-// Whether an admin account already exists. Returns:
-//   true  → an admin exists → show the login form
-//   false → connected but no admin yet → show the "generate setup SQL" step
-//   null  → couldn't tell (DB not set up / function missing) → also show setup
-export async function adminAccountExists(): Promise<boolean | null> {
-  const supabase = await getSupabase();
-  if (!supabase) return null;
-  const { data, error } = await supabase.rpc('admin_exists');
-  if (error) return null;
-  return data === true;
-}
+// ---- Admin login (Supabase Auth) ------------------------------------------
 
 export async function adminLogin(email: string, password: string): Promise<AuthResult> {
   const supabase = await getSupabase();
   if (!supabase) return { ok: false, error: 'Store not connected.' };
-  const { data, error } = await supabase.rpc('admin_login', {
-    p_email: email.trim(),
-    p_password: password,
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
   });
-  if (error) return { ok: false, error: rpcError(error.message) };
-  if (data === true) {
-    startSession(email.trim().toLowerCase());
-    return { ok: true };
+  if (!error) return { ok: true };
+  if (/invalid login credentials/i.test(error.message)) {
+    return { ok: false, error: 'Wrong email or password.' };
   }
-  return { ok: false, error: 'Wrong email or password.' };
+  if (/email not confirmed/i.test(error.message)) {
+    return {
+      ok: false,
+      error: 'This admin user is not confirmed — open Supabase → Authentication → Users and confirm it.',
+    };
+  }
+  return { ok: false, error: error.message };
 }
 
-export async function adminChangePassword(
-  email: string,
-  current: string,
-  next: string
-): Promise<AuthResult> {
+// Change the logged-in admin's password. We re-verify the current password
+// first (Supabase's updateUser doesn't check it) so a walk-up user at an open
+// session can't silently change it.
+export async function adminChangePassword(current: string, next: string): Promise<AuthResult> {
   const supabase = await getSupabase();
   if (!supabase) return { ok: false, error: 'Store not connected.' };
-  const { data, error } = await supabase.rpc('admin_change_password', {
-    p_email: email.trim(),
-    p_current: current,
-    p_new: next,
-  });
-  if (error) return { ok: false, error: rpcError(error.message) };
-  switch (data) {
-    case 'ok':
-      return { ok: true };
-    case 'wrong_current':
-      return { ok: false, error: 'Current password is wrong.' };
-    case 'weak_password':
-      return { ok: false, error: 'New password must be at least 6 characters.' };
-    default:
-      return { ok: false, error: 'Could not change the password.' };
-  }
+  if (!next || next.length < 6) return { ok: false, error: 'New password must be at least 6 characters.' };
+
+  const email = await getAdminEmail();
+  if (!email) return { ok: false, error: 'You are not logged in.' };
+
+  const check = await supabase.auth.signInWithPassword({ email, password: current });
+  if (check.error) return { ok: false, error: 'Current password is wrong.' };
+
+  const { error } = await supabase.auth.updateUser({ password: next });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }
 
-// ---- Session (localStorage, 30 days) --------------------------------------
+// ---- Session (managed by Supabase Auth) -----------------------------------
 
-type Session = { email: string; at: number };
-
-export function startSession(email: string): void {
-  if (typeof window === 'undefined') return;
-  const session: Session = { email, at: nowMs() };
-  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+export async function isLoggedIn(): Promise<boolean> {
+  const supabase = await getSupabase();
+  if (!supabase) return false;
+  const { data } = await supabase.auth.getSession();
+  return !!data.session;
 }
 
-export function signOut(): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(SESSION_KEY);
+export async function getAdminEmail(): Promise<string> {
+  const supabase = await getSupabase();
+  if (!supabase) return '';
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.email ?? '';
 }
 
-function readSession(): Session | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as Session;
-    if (!s?.at || nowMs() - s.at > SESSION_TTL_MS) {
-      signOut();
-      return null;
-    }
-    return s;
-  } catch {
-    return null;
-  }
-}
-
-export function isLoggedIn(): boolean {
-  return readSession() !== null;
-}
-
-export function getAdminEmail(): string {
-  return readSession()?.email ?? '';
-}
-
-function nowMs(): number {
-  return new Date().getTime();
+export async function signOut(): Promise<void> {
+  const supabase = await getSupabase();
+  if (supabase) await supabase.auth.signOut();
 }

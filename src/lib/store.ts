@@ -153,80 +153,65 @@ export type NewOrder = {
   total: number;
 };
 
-// A logged-in shopper's full order history, newest first.
-// Returns [] gracefully if the store hasn't added the customer_email column yet.
-export async function getOrdersForCustomer(email: string): Promise<Order[]> {
+// A logged-in shopper's full order history, newest first. Looked up by their
+// customer id (a random UUID they only obtain by logging in) through a
+// SECURITY DEFINER RPC — the orders table itself is NOT readable with the
+// public anon key, so no one can bulk-read other people's orders.
+export async function getOrdersForCustomer(customerId: string): Promise<Order[]> {
   const supabase = await getSupabase();
-  if (!supabase || !email.trim()) return [];
-  if (!(await ordersSupportEmail())) return [];
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('customer_email', email.trim().toLowerCase())
-    .order('created_at', { ascending: false });
+  if (!supabase || !customerId) return [];
+  const { data, error } = await supabase.rpc('orders_for_customer', {
+    p_customer_id: customerId,
+  });
   if (error || !data) return [];
   return data as Order[];
 }
 
-// Whether the orders table has the customer_email column (probed once, cached).
-// This lets checkout work on a store that hasn't re-run the setup SQL yet:
-// we simply omit the column instead of failing the insert.
-let _ordersHasEmail: boolean | null = null;
-async function ordersSupportEmail(): Promise<boolean> {
-  if (_ordersHasEmail !== null) return _ordersHasEmail;
-  const supabase = await getSupabase();
-  if (!supabase) return false;
-  const { error } = await supabase.from('orders').select('customer_email').limit(1);
-  _ordersHasEmail = !error;
-  return _ordersHasEmail;
+// A random order id, generated on the client so we don't need to read the row
+// back after insert (the public key can insert orders but not SELECT them).
+// Uses crypto.randomUUID in secure contexts, with a fallback for plain-http
+// LAN testing where it may be unavailable.
+function newOrderId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch {
+    /* fall through to the manual generator */
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
+    const r = (Math.random() * 16) | 0;
+    const v = ch === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
-// Returns the created order id (first 8 chars are shown to the customer).
+// Creates an order (anyone may place one). We set the id ourselves and don't
+// read the row back, since RLS lets the public insert orders but not read them.
+// Returns the id (its first 8 chars are the code shown to the customer).
 export async function createOrder(order: NewOrder): Promise<string | null> {
   const supabase = await getSupabase();
   if (!supabase) return null;
-
-  const hasEmail = await ordersSupportEmail();
-  const { customer_email, ...base } = order;
-  const payload: Record<string, unknown> = hasEmail
-    ? { ...base, customer_email, status: 'pending' }
-    : { ...base, status: 'pending' };
-
-  const { data, error } = await supabase
+  const id = newOrderId();
+  const { error } = await supabase
     .from('orders')
-    .insert(payload)
-    .select('id')
-    .maybeSingle();
-  if (error || !data) return null;
-  return (data as { id: string }).id;
+    .insert({ id, ...order, status: 'pending' });
+  if (error) return null;
+  return id;
 }
 
-// Look up a single order for customer order-tracking. Matches on the full id
-// or the short 8-char prefix shown to customers.
-//
-// Note: Postgres can't run ILIKE against a uuid column (error 42883), so we
-// don't push a prefix filter to the DB. Full ids use an exact match; short
-// codes are matched client-side against recent orders.
+// Look up a single order for customer order-tracking, by the full id or the
+// short 8-char code shown at checkout. Goes through a SECURITY DEFINER RPC so a
+// shopper can find THEIR order by its (unguessable) code, without the orders
+// table being readable in bulk with the public anon key.
 export async function getOrderByCode(code: string): Promise<Order | null> {
   const supabase = await getSupabase();
   if (!supabase) return null;
-  const c = code.trim().replace(/^#/, '').toLowerCase();
+  const c = code.trim();
   if (!c) return null;
-
-  // A full UUID → exact match (fast, indexed).
-  if (c.length >= 32) {
-    const { data } = await supabase.from('orders').select('*').eq('id', c).maybeSingle();
-    return (data as Order) ?? null;
-  }
-
-  // Short code → fetch recent orders and prefix-match in JS.
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(500);
-  if (error || !data) return null;
-  return (data as Order[]).find((o) => o.id.toLowerCase().startsWith(c)) ?? null;
+  const { data, error } = await supabase.rpc('order_lookup', { p_code: c });
+  if (error || !data || !(data as Order[]).length) return null;
+  return (data as Order[])[0];
 }
 
 export async function getOrders(): Promise<Order[]> {

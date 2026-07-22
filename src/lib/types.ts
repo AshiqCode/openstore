@@ -34,8 +34,6 @@ export type Order = {
 // The settings table is a flat key/value store; this is the typed view of it.
 export type Settings = {
   store_name: string;
-  admin_email: string;
-  admin_password_hash: string;
   theme: string;
   whatsapp_number: string;
   currency: string;
@@ -61,8 +59,6 @@ export type Settings = {
 
 export const SETTINGS_KEYS: (keyof Settings)[] = [
   'store_name',
-  'admin_email',
-  'admin_password_hash',
   'theme',
   'whatsapp_number',
   'currency',
@@ -86,8 +82,6 @@ export const SETTINGS_KEYS: (keyof Settings)[] = [
 
 export const DEFAULT_SETTINGS: Settings = {
   store_name: 'OPEN STORE',
-  admin_email: '',
-  admin_password_hash: '',
   theme: 'clean',
   whatsapp_number: '',
   currency: 'Rs.',

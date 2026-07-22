@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Spinner } from '@/components/Spinner';
 import { useToast } from '@/components/Toast';
@@ -18,12 +18,16 @@ export default function PasswordPage() {
 function ChangePassword() {
   const toast = useToast();
   const S = useT();
-  const email = getAdminEmail();
+  const [email, setEmail] = useState('');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+
+  useEffect(() => {
+    getAdminEmail().then(setEmail);
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +36,7 @@ function ChangePassword() {
     if (next !== confirm) return setErr('New passwords do not match.');
 
     setBusy(true);
-    const res = await adminChangePassword(email, current, next);
+    const res = await adminChangePassword(current, next);
     setBusy(false);
     if (res.ok) {
       setCurrent('');

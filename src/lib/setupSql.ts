@@ -37,8 +37,6 @@ alter table orders add column if not exists customer_email text default '';
 
 insert into settings (key, value) values
   ('store_name', 'OPEN STORE'),
-  ('admin_email', ''),
-  ('admin_password_hash', 'c7e616822f366fb1b5e0756af498cc11d2c0862edcb32ca65882f622ff39de1b'),
   ('theme', 'clean'),
   ('whatsapp_number', ''),
   ('currency', 'Rs.'),
@@ -68,6 +66,8 @@ alter table products enable row level security;
 alter table settings enable row level security;
 alter table orders enable row level security;
 
+-- Drop any earlier policies (including the old open "anon write" ones) so this
+-- script is safe to re-run and upgrades an existing store to the locked-down set.
 drop policy if exists "public read products" on products;
 drop policy if exists "public read settings" on settings;
 drop policy if exists "public insert orders" on orders;
@@ -76,62 +76,36 @@ drop policy if exists "anon update settings" on settings;
 drop policy if exists "anon write settings" on settings;
 drop policy if exists "anon read orders" on orders;
 drop policy if exists "anon update orders" on orders;
+drop policy if exists "auth write products" on products;
+drop policy if exists "auth write settings" on settings;
+drop policy if exists "auth read orders" on orders;
+drop policy if exists "auth update orders" on orders;
 drop policy if exists "public read images" on storage.objects;
 drop policy if exists "anon upload images" on storage.objects;
+drop policy if exists "auth upload images" on storage.objects;
 
+-- Public (anyone, incl. logged-out shoppers) may READ products & settings and
+-- PLACE an order — nothing more. Only the logged-in admin (a real Supabase Auth
+-- user) may write products/settings and read or update orders. This keeps the
+-- public anon key from reading customer order data or editing your catalog.
 create policy "public read products" on products for select using (true);
+create policy "auth write products" on products for all to authenticated using (true) with check (true);
+
 create policy "public read settings" on settings for select using (true);
+create policy "auth write settings" on settings for all to authenticated using (true) with check (true);
+
 create policy "public insert orders" on orders for insert with check (true);
-create policy "anon write products" on products for all using (true) with check (true);
-create policy "anon write settings" on settings for all using (true) with check (true);
-create policy "anon read orders" on orders for select using (true);
-create policy "anon update orders" on orders for update using (true);
+create policy "auth read orders" on orders for select to authenticated using (true);
+create policy "auth update orders" on orders for update to authenticated using (true) with check (true);
+
 create policy "public read images" on storage.objects for select using (bucket_id = 'store-images');
-create policy "anon upload images" on storage.objects for insert with check (bucket_id = 'store-images');
+create policy "auth upload images" on storage.objects for insert to authenticated with check (bucket_id = 'store-images');
 
--- Admin account (store owner) — email + bcrypt password login.
--- NOTE: there is NO public "sign up". The admin row is created by the owner's
--- generated SQL (see the app's setup screen), so only someone who can run SQL
--- in Supabase can create an admin. anon can only LOG IN, not create accounts.
-create extension if not exists pgcrypto;
-
-create table if not exists admins (
-  id uuid primary key default gen_random_uuid(),
-  email text unique not null,
-  password_hash text not null,
-  created_at timestamptz default now()
-);
-
-alter table admins enable row level security;
-
-create or replace function admin_exists()
-returns boolean language sql security definer set search_path = public, extensions as $$
-  select exists (select 1 from admins);
-$$;
-
-create or replace function admin_login(p_email text, p_password text)
-returns boolean language plpgsql security definer set search_path = public, extensions as $$
-declare stored text;
-begin
-  select password_hash into stored from admins where lower(email) = lower(p_email);
-  if stored is null then return false; end if;
-  return stored = crypt(p_password, stored);
-end; $$;
-
-create or replace function admin_change_password(p_email text, p_current text, p_new text)
-returns text language plpgsql security definer set search_path = public, extensions as $$
-declare stored text;
-begin
-  select password_hash into stored from admins where lower(email) = lower(p_email);
-  if stored is null or stored <> crypt(p_current, stored) then return 'wrong_current'; end if;
-  if p_new is null or length(p_new) < 6 then return 'weak_password'; end if;
-  update admins set password_hash = crypt(p_new, gen_salt('bf')) where lower(email) = lower(p_email);
-  return 'ok';
-end; $$;
-
-grant execute on function admin_login(text, text) to anon, authenticated;
-grant execute on function admin_change_password(text, text, text) to anon, authenticated;
-grant execute on function admin_exists() to anon, authenticated;
+-- ADMIN LOGIN: there is no admins table and no public sign-up. Create your ONE
+-- admin in the Supabase dashboard → Authentication → Users → "Add user":
+-- enter your email + password and tick "Auto Confirm User". That account is the
+-- only thing that can log in to /admin. (Only someone with Supabase access can
+-- create it, so no visitor can ever register.)
 
 -- Customer accounts (shoppers) — DB-backed profile, cart and favorites.
 create extension if not exists pgcrypto;
@@ -187,26 +161,32 @@ grant execute on function customer_signup(text, text, text) to anon, authenticat
 grant execute on function customer_login(text, text) to anon, authenticated;
 grant execute on function customer_update(uuid, text, text, text) to anon, authenticated;
 grant execute on function customer_sync(uuid, jsonb, jsonb) to anon, authenticated;
-`;
 
-// Escape a value for a single-quoted Postgres string literal.
-function sqlLiteral(value: string): string {
-  return value.replace(/'/g, "''");
-}
+-- Order lookups for shoppers. Orders are NOT readable with the public anon key
+-- (only the logged-in admin can read the table), so these SECURITY DEFINER
+-- functions let a shopper find just their OWN order: by its unguessable code,
+-- or by their customer id (which they only get by logging in). No bulk read.
+create or replace function order_lookup(p_code text)
+returns setof orders language plpgsql security definer set search_path = public, extensions as $$
+declare code text := lower(regexp_replace(coalesce(p_code, ''), '[^0-9a-fA-F]', '', 'g'));
+begin
+  if code = '' then return; end if;
+  return query
+    select * from orders
+    where translate(id::text, '-', '') like code || '%'
+    order by created_at desc
+    limit 1;
+end; $$;
 
-// Build the FULL setup SQL with the owner's admin account baked in. The owner
-// pastes this into the Supabase SQL Editor — since only someone with SQL access
-// can run it, this is what guarantees only the owner can create the admin.
-// The password is hashed by Postgres (bcrypt) when the script runs.
-export function buildAdminSetupSql(email: string, password: string): string {
-  const e = sqlLiteral(email.trim().toLowerCase());
-  const p = sqlLiteral(password);
-  return `${SETUP_SQL}
--- ── Create your admin login (this row is what lets you log in) ─────────────
-set search_path = public, extensions;
-insert into admins (email, password_hash)
-values ('${e}', crypt('${p}', gen_salt('bf')))
-on conflict (email) do update set password_hash = excluded.password_hash;
+create or replace function orders_for_customer(p_customer_id uuid)
+returns setof orders language sql security definer set search_path = public, extensions as $$
+  select o.* from orders o
+  join customers c on c.id = p_customer_id
+  where lower(o.customer_email) = lower(c.email)
+  order by o.created_at desc;
+$$;
+
+grant execute on function order_lookup(text) to anon, authenticated;
+grant execute on function orders_for_customer(uuid) to anon, authenticated;
 `;
-}
 
