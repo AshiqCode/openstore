@@ -29,7 +29,12 @@ const DESCRIPTION =
 // preview (og:image) uses the owner's uploaded favicon/logo — social scrapers
 // don't run JS, so the value must be baked into the HTML at build, not applied
 // at runtime. Falls back to the bundled og.png if anything is missing.
-async function getStoreBranding(): Promise<{ name?: string; icon?: string; ogImage?: string }> {
+async function getStoreBranding(): Promise<{
+  name?: string;
+  icon?: string;
+  ogImage?: string;
+  description?: string;
+}> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return {};
@@ -38,7 +43,7 @@ async function getStoreBranding(): Promise<{ name?: string; icon?: string; ogIma
     const { data } = await supabase
       .from('settings')
       .select('key, value')
-      .in('key', ['store_name', 'favicon_url', 'logo_url']);
+      .in('key', ['store_name', 'favicon_url', 'logo_url', 'tagline', 'about_text']);
     const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value])) as Record<string, string>;
 
     // The admin app regenerates this card (in the store's theme) whenever the
@@ -51,10 +56,17 @@ async function getStoreBranding(): Promise<{ name?: string; icon?: string; ogIma
       /* card not generated yet — fall back below */
     }
 
+    // Prefer the store's own tagline, then a trimmed slice of its About text,
+    // so the shared-link description is about THIS store, not OPEN STORE.
+    const tagline = (map.tagline || '').trim();
+    const about = (map.about_text || '').replace(/\s+/g, ' ').trim();
+    const description = tagline || (about ? about.slice(0, 155) : undefined);
+
     return {
       name: map.store_name || undefined,
       icon: map.favicon_url || map.logo_url || undefined,
       ogImage,
+      description,
     };
   } catch {
     return {};
@@ -62,9 +74,10 @@ async function getStoreBranding(): Promise<{ name?: string; icon?: string; ogIma
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { name, icon, ogImage } = await getStoreBranding();
+  const { name, icon, ogImage, description } = await getStoreBranding();
   const storeName = name || 'OPEN STORE';
   const ogTitle = name ? `${name} — online store` : TITLE;
+  const desc = description || DESCRIPTION;
 
   // Browser-tab / app icon: the uploaded favicon (or logo) is perfect here —
   // a small square icon is exactly what a favicon is for.
@@ -77,7 +90,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(SITE_URL),
     title: storeName,
-    description: DESCRIPTION,
+    description: desc,
     manifest: '/manifest.webmanifest',
     icons: {
       icon: tabIcon,
@@ -92,14 +105,14 @@ export async function generateMetadata(): Promise<Metadata> {
       type: 'website',
       siteName: storeName,
       title: ogTitle,
-      description: DESCRIPTION,
+      description: desc,
       url: SITE_URL,
       images: [{ url: previewImage, width: 1200, height: 630, alt: storeName }],
     },
     twitter: {
       card: 'summary_large_image',
       title: ogTitle,
-      description: DESCRIPTION,
+      description: desc,
       images: [previewImage],
     },
   };
