@@ -1,9 +1,9 @@
 // Shared-link preview card, generated in the browser so it always matches the
-// store's CURRENT theme + branding.
+// store's CURRENT theme + tagline.
 //
 // A static site can't render a per-store preview at request time (social
 // scrapers don't run JS), so instead the admin app draws a 1200×630 card on a
-// canvas whenever the theme/branding changes and uploads it to Supabase Storage
+// canvas whenever the theme/tagline changes and uploads it to Supabase Storage
 // at a STABLE path. The og:image meta tag (baked at build) points at that path,
 // so overwriting the file updates the preview everywhere without a rebuild.
 
@@ -20,34 +20,17 @@ export function ogCardUrl(supabaseUrl: string): string {
   return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${OG_BUCKET}/${OG_CARD_PATH}`;
 }
 
-function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-// Load a (possibly cross-origin) image without tainting the canvas: we fetch the
-// bytes ourselves and decode from a blob. Returns null if it can't be loaded.
-async function loadBadge(url: string): Promise<CanvasImageSource | null> {
-  try {
-    const resp = await fetch(url, { mode: 'cors' });
-    if (!resp.ok) return null;
-    const blob = await resp.blob();
-    if (typeof createImageBitmap === 'function') return await createImageBitmap(blob);
-    return await new Promise((resolve) => {
-      const img = new Image();
-      const obj = URL.createObjectURL(blob);
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = obj;
-    });
-  } catch {
-    return null;
+// Split a tagline into display lines: at commas (keeping the comma), otherwise
+// balance the words across two lines.
+function splitToLines(text: string): string[] {
+  if (text.includes(',')) {
+    const parts = text.split(',').map((s) => s.trim()).filter(Boolean);
+    return parts.map((p, i) => (i < parts.length - 1 ? `${p},` : p));
   }
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length < 4) return [text];
+  const mid = Math.ceil(words.length / 2);
+  return [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
 }
 
 async function drawCard(settings: Settings): Promise<Blob | null> {
@@ -56,8 +39,6 @@ async function drawCard(settings: Settings): Promise<Blob | null> {
   const bg = v['--color-bg'];
   const primary = v['--color-primary'];
   const text = v['--color-text'];
-  const muted = v['--color-muted'];
-  const card = v['--color-card'];
 
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
@@ -65,60 +46,48 @@ async function drawCard(settings: Settings): Promise<Blob | null> {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
-  // Background + theme accent stripes.
+  // Background + thin theme accent stripes top & bottom.
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, 1200, 630);
   ctx.fillStyle = primary;
   ctx.fillRect(0, 0, 1200, 14);
   ctx.fillRect(0, 616, 1200, 14);
 
-  // Logo / favicon badge (centered near the top). Prefer the logo (usually
-  // larger and nicer on a card); fall back to the favicon.
-  const badgeUrl = settings.logo_url || settings.favicon_url;
-  let hasBadge = false;
-  if (badgeUrl) {
-    const img = await loadBadge(badgeUrl);
-    if (img) {
-      const bs = 200;
-      const bx = (1200 - bs) / 2;
-      const by = 92;
-      const r = 40;
-      roundRectPath(ctx, bx, by, bs, bs, r);
-      ctx.fillStyle = card;
-      ctx.fill();
-      ctx.save();
-      roundRectPath(ctx, bx, by, bs, bs, r);
-      ctx.clip();
-      // Contain-fit so a non-square logo isn't stretched.
-      const d = img as unknown as { width?: number; height?: number; naturalWidth?: number; naturalHeight?: number };
-      const iw = d.naturalWidth || d.width || bs;
-      const ih = d.naturalHeight || d.height || bs;
-      const pad = 16;
-      const scale = Math.min((bs - pad * 2) / iw, (bs - pad * 2) / ih);
-      const dw = iw * scale;
-      const dh = ih * scale;
-      ctx.drawImage(img, bx + (bs - dw) / 2, by + (bs - dh) / 2, dw, dh);
-      ctx.restore();
-      roundRectPath(ctx, bx, by, bs, bs, r);
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = primary;
-      ctx.stroke();
-      hasBadge = true;
-    }
-  }
+  // Just the tagline — split into lines, rendered in a unique two-tone style.
+  const raw = (settings.tagline || settings.store_name || 'OPEN STORE').trim();
+  const lines = splitToLines(raw);
 
-  // Store name (theme text color) + tagline (theme muted color).
+  const maxWidth = 980;
+  const fontOf = (px: number) => `800 ${px}px system-ui, 'Segoe UI', Roboto, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillStyle = text;
-  ctx.font = "700 78px system-ui, 'Segoe UI', Roboto, sans-serif";
-  ctx.fillText(settings.store_name || 'OPEN STORE', 600, hasBadge ? 400 : 330, 1080);
+  ctx.textBaseline = 'alphabetic';
 
-  const tag = (settings.tagline || '').trim();
-  if (tag) {
-    ctx.fillStyle = muted;
-    ctx.font = "italic 30px system-ui, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText(tag, 600, hasBadge ? 470 : 400, 1060);
+  // Auto-fit so the widest line stays within the card.
+  let fs = 96;
+  while (fs > 44) {
+    ctx.font = fontOf(fs);
+    const widest = Math.max(...lines.map((l) => ctx.measureText(l).width));
+    if (widest <= maxWidth) break;
+    fs -= 4;
   }
+  ctx.font = fontOf(fs);
+
+  const lineH = Math.round(fs * 1.16);
+  const blockH = lineH * lines.length;
+  const firstBaseline = Math.round((630 - blockH) / 2 + fs * 0.8);
+
+  // Eyebrow accent bar above the text.
+  const barW = 96;
+  const barH = 8;
+  ctx.fillStyle = primary;
+  ctx.fillRect((1200 - barW) / 2, firstBaseline - Math.round(fs * 0.8) - 46, barW, barH);
+
+  // Lines: last line in the theme's primary color for a stylish two-tone look.
+  lines.forEach((line, i) => {
+    ctx.font = fontOf(fs);
+    ctx.fillStyle = i === lines.length - 1 ? primary : text;
+    ctx.fillText(line, 600, firstBaseline + i * lineH, maxWidth + 40);
+  });
 
   return await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'));
 }
@@ -144,7 +113,7 @@ export async function refreshOgCard(settings?: Settings): Promise<void> {
 }
 
 // Refresh the card at most once per page load — called when the admin opens the
-// panel, so the preview always reflects the current logo, theme and name pulled
+// panel, so the preview always reflects the current theme and tagline pulled
 // from storage, without the owner having to change anything.
 let didAutoRefresh = false;
 export async function autoRefreshOgCardOnce(): Promise<void> {
