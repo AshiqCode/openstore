@@ -151,7 +151,12 @@ function ProductInner() {
                     className="btn btn-primary"
                     onClick={() => {
                       addToCart(
-                        { id: product.id, name: product.name, price: effectivePrice(product) },
+                        {
+                          id: product.id,
+                          name: product.name,
+                          price: effectivePrice(product),
+                          image_url: product.image_url,
+                        },
                         qty
                       );
                       toast(`${product.name} — ${S.addedToCart}`, 'success');

@@ -107,7 +107,7 @@ export function ProductCard({ product, currency }: { product: Product; currency:
           className="btn btn-primary mt-2 w-full"
           disabled={soldOut}
           onClick={() => {
-            addToCart({ id: product.id, name: product.name, price: finalPrice });
+            addToCart({ id: product.id, name: product.name, price: finalPrice, image_url: product.image_url });
             toast(`${product.name} — ${S.addedToCart}`, 'success');
           }}
         >

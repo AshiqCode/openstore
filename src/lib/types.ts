@@ -17,7 +17,13 @@ export type Product = {
 
 export type OrderStatus = 'pending' | 'confirmed' | 'delivered' | 'cancelled';
 
-export type OrderItem = { id: string; name: string; price: number; qty: number };
+export type OrderItem = {
+  id: string;
+  name: string;
+  price: number;
+  qty: number;
+  image_url?: string;
+};
 
 export type Order = {
   id: string;

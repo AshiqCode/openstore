@@ -9,7 +9,6 @@ import {
   Package,
   Settings as SettingsIcon,
   Palette,
-  Plug,
   KeyRound,
   Menu,
   LogOut,
@@ -39,7 +38,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     { href: '/admin/settings', label: S.settings, icon: SettingsIcon },
     { href: '/admin/theme', label: S.theme, icon: Palette },
     { href: '/admin/password', label: S.changePassword, icon: KeyRound },
-    { href: '/admin/config', label: S.config, icon: Plug },
   ];
 
   useEffect(() => {

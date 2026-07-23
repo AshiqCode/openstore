@@ -102,9 +102,23 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
 
 // Collapsible first-time instructions: run the setup SQL once, then create the
 // single admin user in the Supabase dashboard. No public sign-up exists, so only
-// someone with Supabase access can create the admin.
+// someone with Supabase access can create the admin. The steps are protected by
+// a setup password so only the store owner can open them.
 function FirstTimeSetup() {
   const [open, setOpen] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const [pw, setPw] = useState('');
+  const [err, setErr] = useState('');
+
+  function unlock(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw === 'KEEPS') {
+      setUnlocked(true);
+      setErr('');
+    } else {
+      setErr('Incorrect password.');
+    }
+  }
 
   return (
     <div className="mt-4 rounded-theme border border-line bg-card">
@@ -112,10 +126,30 @@ function FirstTimeSetup() {
         className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium"
         onClick={() => setOpen((o) => !o)}
       >
-        First time setting up your store?
+        First time setting up storage?
         <ChevronDown size={16} className={`text-muted transition ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && (
+      {open && !unlocked && (
+        <form onSubmit={unlock} className="border-t border-line px-4 py-4">
+          <p className="mb-3 text-sm text-muted">Enter the setup password to continue.</p>
+          <IconField icon={Lock}>
+            <input
+              className="input pl-9"
+              type="password"
+              autoFocus
+              placeholder="Setup password"
+              value={pw}
+              onChange={(e) => {
+                setPw(e.target.value);
+                setErr('');
+              }}
+            />
+          </IconField>
+          {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+          <button className="btn btn-primary mt-3 w-full">Unlock</button>
+        </form>
+      )}
+      {open && unlocked && (
         <div className="border-t border-line px-4 py-4 text-sm text-muted">
           <ol className="space-y-3">
             <li>

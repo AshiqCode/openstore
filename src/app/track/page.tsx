@@ -9,7 +9,7 @@ import { StoreFooter } from '@/components/StoreFooter';
 import { FullPageSpinner, Spinner } from '@/components/Spinner';
 import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
-import { getOrderByCode, getOrdersForCustomer, getSettings } from '@/lib/store';
+import { getActiveProducts, getOrderByCode, getOrdersForCustomer, getSettings } from '@/lib/store';
 import { money, shortDate, waLink } from '@/lib/format';
 import { useCustomer } from '@/components/CustomerProvider';
 import { DEFAULT_SETTINGS, type Order, type OrderStatus, type Settings } from '@/lib/types';
@@ -28,6 +28,7 @@ function TrackInner() {
   const params = useSearchParams();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [productImages, setProductImages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const [code, setCode] = useState(params.get('id') ?? '');
@@ -38,6 +39,14 @@ function TrackInner() {
   useEffect(() => {
     if (guard !== 'ready') return;
     getSettings().then(setSettings);
+    // Build an id -> image map so order items (old or new) can show a picture.
+    getActiveProducts().then((ps) => {
+      const map: Record<string, string> = {};
+      ps.forEach((p) => {
+        if (p.image_url) map[p.id] = p.image_url;
+      });
+      setProductImages(map);
+    });
     if (customer) {
       getOrdersForCustomer(customer.id).then((o) => {
         setOrders(o);
@@ -93,7 +102,7 @@ function TrackInner() {
         {searched && !searching && (
           <div className="mt-4">
             {found ? (
-              <OrderCard order={found} settings={settings} />
+              <OrderCard order={found} settings={settings} images={productImages} />
             ) : (
               <div className="card p-5 text-center text-sm text-muted">
                 No order found for that ID.
@@ -124,7 +133,7 @@ function TrackInner() {
           ) : (
             <div className="flex flex-col gap-3">
               {orders.map((o) => (
-                <OrderCard key={o.id} order={o} settings={settings} />
+                <OrderCard key={o.id} order={o} settings={settings} images={productImages} />
               ))}
             </div>
           )}
@@ -142,7 +151,15 @@ const STATUS_STYLES: Record<OrderStatus, { bg: string; color: string; label: str
   cancelled: { bg: 'rgba(220,38,38,0.15)', color: '#b91c1c', label: 'Cancelled' },
 };
 
-function OrderCard({ order, settings }: { order: Order; settings: Settings }) {
+function OrderCard({
+  order,
+  settings,
+  images,
+}: {
+  order: Order;
+  settings: Settings;
+  images: Record<string, string>;
+}) {
   const s = STATUS_STYLES[order.status] ?? STATUS_STYLES.pending;
   // Only pending / confirmed orders get the "track on WhatsApp" button.
   const canTrack = order.status === 'pending' || order.status === 'confirmed';
@@ -164,15 +181,24 @@ function OrderCard({ order, settings }: { order: Order; settings: Settings }) {
         <div className="text-lg font-bold">{money(Number(order.total), settings.currency)}</div>
       </div>
 
-      <div className="mt-3 rounded-theme border border-line bg-bg p-2.5 text-sm">
-        {(order.items || []).map((it, i) => (
-          <div key={i} className="flex justify-between py-0.5">
-            <span className="min-w-0 truncate">
-              {it.name} × {it.qty}
-            </span>
-            <span className="ml-2 shrink-0">{money(it.price * it.qty, settings.currency)}</span>
-          </div>
-        ))}
+      <div className="mt-3 flex flex-col gap-2 rounded-theme border border-line bg-bg p-2.5 text-sm">
+        {(order.items || []).map((it, i) => {
+          const img = it.image_url || images[it.id];
+          return (
+            <div key={i} className="flex items-center gap-2.5">
+              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-theme border border-line bg-card">
+                {img ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={img} alt={it.name} className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+              <span className="min-w-0 flex-1 truncate">
+                {it.name} × {it.qty}
+              </span>
+              <span className="shrink-0">{money(it.price * it.qty, settings.currency)}</span>
+            </div>
+          );
+        })}
       </div>
 
       {canTrack && link && (

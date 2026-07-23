@@ -175,7 +175,7 @@ export default function CheckoutPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="flex flex-col-reverse gap-6 md:grid md:grid-cols-2">
             <form onSubmit={submit} className="card flex flex-col gap-3 p-4">
               <div>
                 <label className="label">{S.yourName}</label>
@@ -212,11 +212,22 @@ export default function CheckoutPage() {
             <div className="card h-fit p-4">
               <h2 className="mb-3 font-semibold">{S.orderSummary}</h2>
               {items.map((it) => (
-                <div key={it.id} className="flex justify-between py-1 text-sm">
-                  <span className="min-w-0 truncate">
-                    {it.name} × {it.qty}
+                <div key={it.id} className="flex items-center gap-3 py-2 text-sm">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-theme border border-line bg-bg">
+                    {it.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={it.image_url} alt={it.name} className="h-full w-full object-cover" />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium text-ink">{it.name}</div>
+                    <div className="text-xs text-muted">
+                      {money(it.price, settings.currency)} × {it.qty}
+                    </div>
+                  </div>
+                  <span className="shrink-0 font-medium">
+                    {money(it.price * it.qty, settings.currency)}
                   </span>
-                  <span className="ml-2 shrink-0">{money(it.price * it.qty, settings.currency)}</span>
                 </div>
               ))}
               <div className="my-2 border-t border-line" />
