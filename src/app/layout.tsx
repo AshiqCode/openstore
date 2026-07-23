@@ -53,40 +53,42 @@ export async function generateMetadata(): Promise<Metadata> {
   const { name, image } = await getStoreBranding();
   const storeName = name || 'OPEN STORE';
   const ogTitle = name ? `${name} — online store` : TITLE;
-  // An external favicon/logo URL is already absolute and has unknown dimensions;
-  // the bundled fallback is a proper 1200×630 card.
-  const ogImages = image
-    ? [{ url: image, alt: storeName }]
-    : [{ url: '/og.png', width: 1200, height: 630, alt: storeName }];
 
+  // Browser-tab / app icon: the uploaded favicon (or logo) is perfect here —
+  // a small square icon is exactly what a favicon is for.
+  const tabIcon = image || '/icon.svg';
+
+  // Link-preview image: NOT the raw favicon. Social scrapers (WhatsApp/Facebook)
+  // reject images smaller than ~200×200 and fall back to a random icon, and a
+  // favicon is tiny. og.png is a proper 1200×630 card (it features the store's
+  // favicon + name), so previews always render and stay on-brand.
   return {
     metadataBase: new URL(SITE_URL),
     title: storeName,
     description: DESCRIPTION,
     manifest: '/manifest.webmanifest',
     icons: {
-      icon: image || '/icon.svg',
-      apple: image || '/icon.svg',
+      icon: tabIcon,
+      apple: tabIcon,
     },
     appleWebApp: {
       capable: true,
       title: storeName,
       statusBarStyle: 'default',
     },
-    // Link-preview (thumbnail) card shown when the URL is shared.
     openGraph: {
       type: 'website',
       siteName: storeName,
       title: ogTitle,
       description: DESCRIPTION,
       url: SITE_URL,
-      images: ogImages,
+      images: [{ url: '/og.png', width: 1200, height: 630, alt: storeName }],
     },
     twitter: {
       card: 'summary_large_image',
       title: ogTitle,
       description: DESCRIPTION,
-      images: [image || '/og.png'],
+      images: ['/og.png'],
     },
   };
 }
