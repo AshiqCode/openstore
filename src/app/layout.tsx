@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { ogCardUrl } from '@/lib/ogCard';
 import '@/styles/globals.css';
 import { ThemeGate } from '@/components/ThemeInit';
 import { ToastProvider } from '@/components/Toast';
@@ -28,7 +29,7 @@ const DESCRIPTION =
 // preview (og:image) uses the owner's uploaded favicon/logo — social scrapers
 // don't run JS, so the value must be baked into the HTML at build, not applied
 // at runtime. Falls back to the bundled og.png if anything is missing.
-async function getStoreBranding(): Promise<{ name?: string; image?: string }> {
+async function getStoreBranding(): Promise<{ name?: string; icon?: string; ogImage?: string }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return {};
@@ -38,11 +39,22 @@ async function getStoreBranding(): Promise<{ name?: string; image?: string }> {
       .from('settings')
       .select('key, value')
       .in('key', ['store_name', 'favicon_url', 'logo_url']);
-    if (!data) return {};
-    const map = Object.fromEntries(data.map((r) => [r.key, r.value])) as Record<string, string>;
+    const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value])) as Record<string, string>;
+
+    // The admin app regenerates this card (in the store's theme) whenever the
+    // theme/branding changes. Use it if it exists; otherwise the bundled og.png.
+    let ogImage: string | undefined;
+    try {
+      const res = await fetch(ogCardUrl(url), { method: 'HEAD' });
+      if (res.ok) ogImage = ogCardUrl(url);
+    } catch {
+      /* card not generated yet — fall back below */
+    }
+
     return {
       name: map.store_name || undefined,
-      image: map.favicon_url || map.logo_url || undefined,
+      icon: map.favicon_url || map.logo_url || undefined,
+      ogImage,
     };
   } catch {
     return {};
@@ -50,18 +62,18 @@ async function getStoreBranding(): Promise<{ name?: string; image?: string }> {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { name, image } = await getStoreBranding();
+  const { name, icon, ogImage } = await getStoreBranding();
   const storeName = name || 'OPEN STORE';
   const ogTitle = name ? `${name} — online store` : TITLE;
 
   // Browser-tab / app icon: the uploaded favicon (or logo) is perfect here —
   // a small square icon is exactly what a favicon is for.
-  const tabIcon = image || '/icon.svg';
+  const tabIcon = icon || '/icon.svg';
 
-  // Link-preview image: NOT the raw favicon. Social scrapers (WhatsApp/Facebook)
-  // reject images smaller than ~200×200 and fall back to a random icon, and a
-  // favicon is tiny. og.png is a proper 1200×630 card (it features the store's
-  // favicon + name), so previews always render and stay on-brand.
+  // Link-preview image: the theme-matched card the admin app generates (a proper
+  // 1200×630, so scrapers don't reject it), else the bundled og.png fallback.
+  const previewImage = ogImage || '/og.png';
+
   return {
     metadataBase: new URL(SITE_URL),
     title: storeName,
@@ -82,13 +94,13 @@ export async function generateMetadata(): Promise<Metadata> {
       title: ogTitle,
       description: DESCRIPTION,
       url: SITE_URL,
-      images: [{ url: '/og.png', width: 1200, height: 630, alt: storeName }],
+      images: [{ url: previewImage, width: 1200, height: 630, alt: storeName }],
     },
     twitter: {
       card: 'summary_large_image',
       title: ogTitle,
       description: DESCRIPTION,
-      images: ['/og.png'],
+      images: [previewImage],
     },
   };
 }

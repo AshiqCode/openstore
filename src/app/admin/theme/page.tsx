@@ -8,6 +8,7 @@ import { Check } from 'lucide-react';
 import { ThemeMiniCard } from '@/components/ThemeMiniCard';
 import { THEMES, applyTheme, DEFAULT_THEME_ID } from '@/lib/themes';
 import { getSettings, saveSettings } from '@/lib/store';
+import { refreshOgCard } from '@/lib/ogCard';
 import { useT } from '@/components/LanguageProvider';
 
 export default function ThemePage() {
@@ -38,8 +39,13 @@ function ThemePicker() {
     setSaving(id);
     const ok = await saveSettings({ theme: id });
     setSaving('');
-    if (!ok) toast('Could not save theme', 'error');
-    else toast('Theme applied', 'success');
+    if (!ok) {
+      toast('Could not save theme', 'error');
+      return;
+    }
+    toast('Theme applied', 'success');
+    // Regenerate the shared-link preview card so it matches the new theme.
+    void refreshOgCard({ ...(await getSettings()), theme: id });
   }
 
   if (loading) {
