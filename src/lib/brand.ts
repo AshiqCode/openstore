@@ -13,7 +13,3 @@ export const VERCEL_DEPLOY_URL =
   encodeURIComponent('Your Supabase Project URL and anon public key (Supabase → Project Settings → API)') +
   '&envLink=' +
   encodeURIComponent(`${REPO_URL}/blob/main/.env.example`);
-
-// Short open-source liability disclaimer shown in the store footer.
-export const DISCLAIMER_SHORT =
-  'This is free, open-source software. The developer is not responsible for any store, its content, transactions, or misuse.';

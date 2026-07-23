@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { Camera, MessageCircle, ThumbsUp, Music2, Mail, MapPin, type LucideIcon } from 'lucide-react';
-import { DISCLAIMER_SHORT } from '@/lib/brand';
 import type { Settings } from '@/lib/types';
 
 export function StoreFooter({ settings }: { settings: Settings }) {
@@ -60,10 +59,6 @@ export function StoreFooter({ settings }: { settings: Settings }) {
             </span>
           )}
         </div>
-
-        <p className="mx-auto mt-2 max-w-xl text-[11px] leading-relaxed opacity-70">
-          {DISCLAIMER_SHORT}
-        </p>
       </div>
     </footer>
   );
