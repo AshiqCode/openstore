@@ -72,30 +72,39 @@ async function drawCard(settings: Settings): Promise<Blob | null> {
   ctx.fillRect(0, 0, 1200, 14);
   ctx.fillRect(0, 616, 1200, 14);
 
-  // Favicon / logo badge (centered near the top).
-  const badgeUrl = settings.favicon_url || settings.logo_url;
-  const hasBadge = !!badgeUrl && !!(await drawBadgeIfPossible());
-  async function drawBadgeIfPossible(): Promise<boolean> {
-    if (!badgeUrl) return false;
+  // Logo / favicon badge (centered near the top). Prefer the logo (usually
+  // larger and nicer on a card); fall back to the favicon.
+  const badgeUrl = settings.logo_url || settings.favicon_url;
+  let hasBadge = false;
+  if (badgeUrl) {
     const img = await loadBadge(badgeUrl);
-    if (!img) return false;
-    const bs = 200;
-    const bx = (1200 - bs) / 2;
-    const by = 92;
-    const r = 40;
-    roundRectPath(ctx!, bx, by, bs, bs, r);
-    ctx!.fillStyle = card;
-    ctx!.fill();
-    ctx!.save();
-    roundRectPath(ctx!, bx, by, bs, bs, r);
-    ctx!.clip();
-    ctx!.drawImage(img, bx, by, bs, bs);
-    ctx!.restore();
-    roundRectPath(ctx!, bx, by, bs, bs, r);
-    ctx!.lineWidth = 5;
-    ctx!.strokeStyle = primary;
-    ctx!.stroke();
-    return true;
+    if (img) {
+      const bs = 200;
+      const bx = (1200 - bs) / 2;
+      const by = 92;
+      const r = 40;
+      roundRectPath(ctx, bx, by, bs, bs, r);
+      ctx.fillStyle = card;
+      ctx.fill();
+      ctx.save();
+      roundRectPath(ctx, bx, by, bs, bs, r);
+      ctx.clip();
+      // Contain-fit so a non-square logo isn't stretched.
+      const d = img as unknown as { width?: number; height?: number; naturalWidth?: number; naturalHeight?: number };
+      const iw = d.naturalWidth || d.width || bs;
+      const ih = d.naturalHeight || d.height || bs;
+      const pad = 16;
+      const scale = Math.min((bs - pad * 2) / iw, (bs - pad * 2) / ih);
+      const dw = iw * scale;
+      const dh = ih * scale;
+      ctx.drawImage(img, bx + (bs - dw) / 2, by + (bs - dh) / 2, dw, dh);
+      ctx.restore();
+      roundRectPath(ctx, bx, by, bs, bs, r);
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = primary;
+      ctx.stroke();
+      hasBadge = true;
+    }
   }
 
   // Store name (theme text color) + tagline (theme muted color).
@@ -132,4 +141,14 @@ export async function refreshOgCard(settings?: Settings): Promise<void> {
   } catch {
     /* non-fatal */
   }
+}
+
+// Refresh the card at most once per page load — called when the admin opens the
+// panel, so the preview always reflects the current logo, theme and name pulled
+// from storage, without the owner having to change anything.
+let didAutoRefresh = false;
+export async function autoRefreshOgCardOnce(): Promise<void> {
+  if (didAutoRefresh) return;
+  didAutoRefresh = true;
+  await refreshOgCard();
 }
