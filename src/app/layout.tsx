@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { ogCardUrl } from '@/lib/ogCard';
 import '@/styles/globals.css';
 import { ThemeGate } from '@/components/ThemeInit';
 import { ToastProvider } from '@/components/Toast';
@@ -32,7 +31,6 @@ const DESCRIPTION =
 async function getStoreBranding(): Promise<{
   name?: string;
   icon?: string;
-  ogImage?: string;
   description?: string;
 }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -46,16 +44,6 @@ async function getStoreBranding(): Promise<{
       .in('key', ['store_name', 'favicon_url', 'logo_url', 'tagline', 'about_text']);
     const map = Object.fromEntries((data ?? []).map((r) => [r.key, r.value])) as Record<string, string>;
 
-    // The admin app regenerates this card (in the store's theme) whenever the
-    // theme/branding changes. Use it if it exists; otherwise the bundled og.png.
-    let ogImage: string | undefined;
-    try {
-      const res = await fetch(ogCardUrl(url), { method: 'HEAD' });
-      if (res.ok) ogImage = ogCardUrl(url);
-    } catch {
-      /* card not generated yet — fall back below */
-    }
-
     // Prefer the store's own tagline, then a trimmed slice of its About text,
     // so the shared-link description is about THIS store, not OPEN STORE.
     const tagline = (map.tagline || '').trim();
@@ -65,7 +53,6 @@ async function getStoreBranding(): Promise<{
     return {
       name: map.store_name || undefined,
       icon: map.favicon_url || map.logo_url || undefined,
-      ogImage,
       description,
     };
   } catch {
@@ -74,7 +61,7 @@ async function getStoreBranding(): Promise<{
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { name, icon, ogImage, description } = await getStoreBranding();
+  const { name, icon, description } = await getStoreBranding();
   const storeName = name || 'OPEN STORE';
   const ogTitle = name ? `${name} — online store` : TITLE;
   const desc = description || DESCRIPTION;
@@ -83,9 +70,8 @@ export async function generateMetadata(): Promise<Metadata> {
   // a small square icon is exactly what a favicon is for.
   const tabIcon = icon || '/icon.svg';
 
-  // Link-preview image: the theme-matched card the admin app generates (a proper
-  // 1200×630, so scrapers don't reject it), else the bundled og.png fallback.
-  const previewImage = ogImage || '/og.png';
+  // Link-preview image: the bundled 1200×630 tagline card (baked at build).
+  const previewImage = '/og.png';
 
   return {
     metadataBase: new URL(SITE_URL),

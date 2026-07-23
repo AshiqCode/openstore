@@ -18,7 +18,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { isLoggedIn, signOut, getAdminEmail } from '@/lib/auth';
-import { autoRefreshOgCardOnce } from '@/lib/ogCard';
 import { FullPageSpinner } from '@/components/Spinner';
 import { MobileDrawer } from '@/components/MobileDrawer';
 import { useT } from '@/components/LanguageProvider';
@@ -53,8 +52,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       if (!active) return;
       setChecked(true);
       setEmail(await getAdminEmail());
-      // Keep the shared-link preview card in sync with the current logo/theme/name.
-      void autoRefreshOgCardOnce();
     })();
     return () => {
       active = false;

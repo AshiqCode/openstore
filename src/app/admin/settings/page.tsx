@@ -5,7 +5,6 @@ import { AdminShell } from '@/components/admin/AdminShell';
 import { Spinner } from '@/components/Spinner';
 import { useToast } from '@/components/Toast';
 import { getSettings, saveSettings, uploadImage } from '@/lib/store';
-import { refreshOgCard } from '@/lib/ogCard';
 import { compressImage } from '@/lib/format';
 import {
   ImageOff,
@@ -107,7 +106,6 @@ function SettingsForm() {
         set('favicon_url', url);
         await saveSettings({ favicon_url: url });
         toast('Favicon updated', 'success');
-        void refreshOgCard({ ...settings, favicon_url: url });
       } else toast('Upload failed', 'error');
     } catch {
       toast('Upload failed', 'error');
@@ -138,8 +136,6 @@ function SettingsForm() {
     });
     setSaving(false);
     toast(ok ? S.saved : S.errSaveFailed, ok ? 'success' : 'error');
-    // Keep the shared-link preview card in sync with the store name/tagline.
-    if (ok) void refreshOgCard(settings);
   }
 
   if (loading) {
