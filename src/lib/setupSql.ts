@@ -35,11 +35,17 @@ create table if not exists orders (
 
 alter table orders add column if not exists customer_email text default '';
 
+-- Card payments (Stripe).
+alter table orders add column if not exists payment_method text default 'cod';
+alter table orders add column if not exists payment_status text default 'unpaid';
+alter table orders add column if not exists stripe_session_id text default '';
+
 insert into settings (key, value) values
   ('store_name', 'OPEN STORE'),
   ('theme', 'clean'),
   ('whatsapp_number', ''),
   ('currency', 'Rs.'),
+  ('currency_code', 'pkr'),
   ('banner_text', ''),
   ('logo_url', ''),
   ('favicon_url', ''),

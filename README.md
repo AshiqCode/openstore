@@ -19,8 +19,10 @@ Two ways — pick one, both are free and both run on **Vercel**.
 2. Vercel shows a **short form** for two values (from **Supabase → Project Settings → API**):
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
    - **anon public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. Click **Deploy** → open **`your-site.vercel.app/admin`** → click **Copy SQL** and run it once in
-   Supabase. 🎉 The store is live for everyone.
+3. Click **Deploy**, then create your admin user in **Supabase → Authentication → Users → Add user**
+   (tick *Auto Confirm User*).
+4. Log in at **`your-site.vercel.app/admin`** → **Settings → Database setup** → **Copy setup SQL** and
+   run it once in Supabase. 🎉 The store is live for everyone.
 
 > Maintainers: replace `AshiqCode/openstore` in the button link with **your** repo.
 
@@ -33,27 +35,25 @@ deploy the output. Vercel signs you in by **email**, no Git needed.
    - **Clone it:** `git clone https://github.com/AshiqCode/openstore.git`
    - **or download it:** on the [GitHub page](https://github.com/AshiqCode/openstore), click the green
      **`Code ▾` → Download ZIP**, then unzip it.
-2. Install **[Node.js](https://nodejs.org)** (free), open a terminal in the project folder, and build
-   the static site:
+2. Install **[Node.js](https://nodejs.org)** (free), open a terminal in the project folder, and
+   install the dependencies:
 
    ```bash
    npm install
-   npm run build      # creates the ./out folder
    ```
 
-3. Deploy the `out` folder to Vercel:
+3. Deploy the project to Vercel — Vercel builds it for you:
 
    ```bash
-   npx vercel deploy --prod out
+   npx vercel deploy --prod
    ```
 
-   Follow the email sign-in link. Vercel uploads the folder and gives you a live `*.vercel.app` URL.
-4. Open **`your-site.vercel.app/admin`** → the setup screen links your Supabase project and gives you
-   the SQL to run. On the last step, **download `config.json`**, put it in the `out` folder, and run
-   the deploy command again so every visitor gets a working store.
+   Follow the email sign-in link. Vercel uploads the project and gives you a live `*.vercel.app` URL.
+4. Open **`your-site.vercel.app/admin`** → log in → **Settings → Database setup** gives you the SQL to
+   run once in Supabase.
 
-> Tip: set the two environment variables **before** building (see the next section) and every visitor
-> gets a working store automatically — you can skip the `config.json` step entirely.
+> Tip: set the environment variables in the Vercel dashboard (see the next section) and every visitor
+> gets a working store automatically — no `config.json` needed.
 
 > First need a database? Create a free project at [supabase.com](https://supabase.com) (~1 minute),
 > then copy your **Project URL** and **anon public key** from Project Settings → API.
@@ -75,8 +75,8 @@ a working store automatically (no `config.json` step):
 
 3. **Redeploy** (Deployments → ⋯ → Redeploy). Environment variables are baked in at build time, so a
    redeploy is required for them to take effect.
-4. Open your site → go to **`/admin`** → run the setup SQL once (the "First time?" panel has a Copy
-   button and a link to the Supabase SQL Editor) → log in with the same keys.
+4. Open your site → go to **`/admin`** → log in, then run the setup SQL once from
+   **Settings → Database setup** (it has a Copy button and a link to the Supabase SQL Editor).
 
 > **How config is found:** the app resolves Supabase config in this order — **environment variables →
 > your browser's saved login → baked `config.json`**. Environment variables always win, so no visitor
@@ -84,12 +84,64 @@ a working store automatically (no `config.json` step):
 
 ---
 
+## 💳 Accept card payments (optional)
+
+Skip this section entirely and your store works exactly as before — cash on delivery only. Add the
+three variables below and checkout grows a **Pay with card** option next to **Cash on delivery**; the
+shopper chooses.
+
+1. Create a free [Stripe](https://stripe.com) account.
+2. In **Vercel → Project → Settings → Environment Variables**, add:
+
+   | Name | Required? | Where to find it |
+   |---|---|---|
+   | `STRIPE_SECRET_KEY` | yes | Stripe → Developers → API keys (`sk_test_…` while testing, `sk_live_…` when live) |
+   | `SUPABASE_SERVICE_ROLE_KEY` | yes | Supabase → Project Settings → API → `service_role` |
+   | `STRIPE_WEBHOOK_SECRET` | recommended | created in step 3 below (`whsec_…`) |
+
+   Both "yes" rows are needed or a shopper can pay and the order still shows **Unpaid** — row-level
+   security stops anything but the service role from updating an order.
+
+3. In **Stripe → Developers → Webhooks → Add endpoint**, use this URL — **keep the trailing slash**,
+   Stripe does not follow redirects:
+
+   ```
+   https://your-site.vercel.app/api/stripe/webhook/
+   ```
+
+   Subscribe it to **`checkout.session.completed`**, save, then copy its **signing secret** into
+   `STRIPE_WEBHOOK_SECRET` and redeploy.
+
+   The webhook is a safety net, not the main path: payment is already verified and recorded when the
+   shopper returns to your site. It covers the shopper who pays and then closes Stripe's tab without
+   coming back.
+4. Set **Admin → Settings → Card payment currency** to the ISO code Stripe should charge in
+   (`pkr`, `usd`, `aed`…). The *Currency prefix* above it is only what shoppers see on screen.
+5. Re-run the setup SQL once from **Admin → Settings → Database setup** — it adds the payment columns
+   to your `orders` table. It is safe to re-run. Skip this and placing a card order fails with
+   *"Could not find the 'payment_method' column"*.
+
+**How to think about it:** an order is marked **Paid** only after *your server* asks Stripe whether
+that payment really cleared — never because the browser said so. Prices are recomputed on the server
+from your database, so a tampered browser request can't change what gets charged. COD orders are
+untouched and still open WhatsApp exactly as before.
+
+**Testing it locally:** put `STRIPE_SECRET_KEY` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`,
+restart `npm run dev`, and pay with Stripe's test card `4242 4242 4242 4242` (any future expiry, any
+CVC). The order should read **Paid** the moment you land back on the site — no webhook, no Stripe CLI
+needed.
+
+> These three keys are **secrets**. They stay server-side, never reach the browser, and must never be
+> renamed with a `NEXT_PUBLIC_` prefix. If a secret key ever leaks, roll it in the Stripe dashboard.
+
+---
+
 ## ❓ FAQ
 
 **How do I set up my admin login?**
-Two one-time steps in Supabase: **(1)** run the setup SQL once (SQL Editor — the "First time?" panel
-on `/admin` has a Copy button), then **(2)** go to **Authentication → Users → Add user**, enter your
-email + password and tick **"Auto Confirm User"**. That's it — log in at `your-site.com/admin`.
+In Supabase go to **Authentication → Users → Add user**, enter your email + password and tick
+**"Auto Confirm User"** — that account is your admin (there is no public sign-up). Then log in at
+`your-site.com/admin` and run the setup SQL once from **Settings → Database setup**.
 Because only someone with Supabase access can add that user, **only you (the owner) can ever create
 the admin** — there is no public sign-up. This login uses **Supabase Auth**, so the database itself
 verifies it: the public key can't read your orders or edit your products.
@@ -107,9 +159,13 @@ there. Or change it while logged in (Admin → Password).
 Yes — the whole admin panel is mobile-first. Just open `your-site.com/admin`.
 
 **The store looks empty / "config missing"?**
-That means the keys aren't available to visitors yet. Use the one-click deploy button (recommended),
-set the two environment variables in Vercel, or download `config.json` from **Admin → Config** and
-re-upload your folder.
+That means the keys aren't available to visitors yet. Set `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` in **Vercel → Settings → Environment Variables**, then redeploy.
+
+**"Could not find the 'payment_method' column of 'orders'"?**
+Your database is on an older schema. Log in to `/admin` → **Settings → Database setup** → **Copy setup
+SQL** → run it in Supabase. Cash-on-delivery orders keep working meanwhile; card orders don't, on
+purpose — the app won't take money it can't record as paid.
 
 **How do I update to a new version?**
 Re-deploy the latest code. Your data stays safe in Supabase, and your keys stay in your Vercel
@@ -127,6 +183,7 @@ Yes. Vercel offers free hosting, and Supabase offers a free database + image sto
   **discounts**, **featured** products, low-stock and "new" badges
 - **Categories** — managed from Settings, shown as store filters
 - **Cart & checkout** — order saved to Supabase, WhatsApp message pre-filled for the seller
+- **Card payments (optional)** — Stripe Checkout alongside cash on delivery; the shopper picks
 - **Customer accounts** — shoppers sign up / log in; cart, favorites and profile are stored in the
   database, so they survive a cleared browser
 - **Order tracking & history** — customers track any order and see their full history; a WhatsApp
@@ -136,7 +193,8 @@ Yes. Vercel offers free hosting, and Supabase offers a free database + image sto
 - **Seller profile & branding** — store name, logo, tagline, about, social links, free-delivery
   threshold, store open/closed toggle
 - **Multi-language** — English (default), Roman Urdu, Urdu
-- **No server needed** — fully static, admin login via your Supabase keys
+- **Almost no server** — everything talks straight to Supabase from the browser; the only server code
+  is the Stripe payment endpoint
 
 ---
 
@@ -145,11 +203,12 @@ Yes. Vercel offers free hosting, and Supabase offers a free database + image sto
 ```bash
 npm install
 npm run dev      # local dev at http://localhost:3000
-npm run build    # static export to ./out
+npm run build    # production build
 ```
 
-Everything runs client-side against Supabase. Static export (`output: 'export'`) — no API routes,
-no server. See [`SECURITY.md`](SECURITY.md) for the honest security trade-offs.
+The store itself runs client-side against Supabase. The only server code is `src/app/api/**`, which
+exists so card payments can use the secret Stripe key — a secret key can never be shipped to a
+browser. See [`SECURITY.md`](SECURITY.md) for the honest security trade-offs.
 
 ---
 

@@ -16,8 +16,12 @@ import {
   Tags,
   Plus,
   X,
+  Database,
+  ExternalLink,
   type LucideIcon,
 } from 'lucide-react';
+import { CopyButton } from '@/components/CopyButton';
+import { SETUP_SQL } from '@/lib/setupSql';
 import { DEFAULT_SETTINGS, parseCategories, type Settings } from '@/lib/types';
 import { useT } from '@/components/LanguageProvider';
 
@@ -119,6 +123,8 @@ function SettingsForm() {
       store_name: settings.store_name,
       tagline: settings.tagline,
       currency: settings.currency,
+      currency_code: (settings.currency_code || 'pkr').trim().toLowerCase(),
+      banner_text: settings.banner_text,
       logo_url: settings.logo_url,
       favicon_url: settings.favicon_url,
       store_open: settings.store_open,
@@ -221,6 +227,23 @@ function SettingsForm() {
           {field({ key: 'store_name', label: 'Store name' })}
           {field({ key: 'tagline', label: 'Tagline', placeholder: 'Best deals in town' })}
           {field({ key: 'currency', label: 'Currency prefix', placeholder: 'Rs.' })}
+          <div>
+            {field({ key: 'currency_code', label: 'Card payment currency', placeholder: 'pkr' })}
+            <p className="mt-1 text-xs text-muted">
+              ISO code Stripe charges in — e.g. <b>pkr</b>, <b>usd</b>, <b>aed</b>. Only used for card
+              payments; the prefix above is what shoppers see.
+            </p>
+          </div>
+          <div>
+            {field({
+              key: 'banner_text',
+              label: 'Announcement strip',
+              placeholder: 'Free delivery on orders over Rs. 2000 — this week only!',
+            })}
+            <p className="mt-1 text-xs text-muted">
+              Shows as a coloured strip at the top of your store. Leave empty to hide it.
+            </p>
+          </div>
           <label className="flex items-center gap-3 rounded-theme border border-line bg-bg p-3">
             <input
               type="checkbox"
@@ -296,6 +319,27 @@ function SettingsForm() {
             <button className="btn btn-outline shrink-0" onClick={addCategory} type="button">
               <Plus size={16} /> Add
             </button>
+          </div>
+        </Section>
+
+        {/* Database setup — also how you upgrade the schema after an update. */}
+        <Section icon={Database} title="Database setup">
+          <p className="text-sm text-muted">
+            Run this once in your Supabase SQL Editor to create the tables. It is safe to run again —
+            and you <b className="text-ink">need</b> to re-run it after updating the app, to add any
+            new columns (that&apos;s what a{' '}
+            <span className="font-mono text-xs">could not find the … column</span> error means).
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <CopyButton text={SETUP_SQL} label="Copy setup SQL" className="btn btn-primary btn-sm" />
+            <a
+              href="https://supabase.com/dashboard/project/_/sql/new"
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-outline btn-sm inline-flex items-center gap-1.5"
+            >
+              Open SQL Editor <ExternalLink size={14} />
+            </a>
           </div>
         </Section>
       </div>

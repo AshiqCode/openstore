@@ -1,7 +1,9 @@
 # Security — honest notes
 
-OPEN STORE runs with **no server and no build step**, yet still keeps your data private by relying on
-**Supabase Auth + Row Level Security (RLS)** — the database itself enforces who can do what.
+The store runs almost entirely in the browser, talking straight to Supabase, and keeps your data
+private by relying on **Supabase Auth + Row Level Security (RLS)** — the database itself enforces who
+can do what. The one exception is `src/app/api/**`, the small server-side piece that card payments
+require (a Stripe secret key can never be shipped to a browser).
 
 ## What protects your store
 
@@ -27,8 +29,22 @@ owner can ever create an admin. The Supabase keys only *connect* the app — the
    data.** With the policies above, a person holding your anon key still cannot read orders or edit
    your catalog.
 
-2. **`service_role` must stay secret.** It bypasses RLS entirely. This app never uses it — never place
-   it in `config.json`, env vars read by the browser, or anywhere client-side.
+2. **`service_role` must stay secret.** It bypasses RLS entirely. Only one place uses it — the Stripe
+   webhook (`src/app/api/stripe/webhook/`), which needs it to mark an order paid because RLS lets
+   nobody but the logged-in admin update orders. It is read from `SUPABASE_SERVICE_ROLE_KEY` on the
+   server only. Never place it in `config.json`, in a `NEXT_PUBLIC_` variable, or anywhere the browser
+   can reach. If you don't enable card payments, don't set it at all.
+
+4. **Card payments never touch this app.** Card numbers are entered on Stripe's own hosted Checkout
+   page, so no card data reaches your site, your database, or your logs. Two rules make the money side
+   trustworthy:
+   - Every price is recomputed server-side from your `products` table — the browser only ever sends
+     product ids and quantities.
+   - An order is marked **paid** only after the server itself confirms with Stripe. There are exactly
+     two ways in: a signature-verified webhook, or the return-trip check, which retrieves the session
+     from Stripe by id and requires both that Stripe reports it `paid` **and** that the session's
+     stored `order_id` matches the order being updated. Visiting the success URL by hand proves
+     nothing, and a genuine paid session id can't be replayed against a different order.
 
 3. **Customer accounts** (shoppers) use a lightweight bcrypt table via `SECURITY DEFINER` functions,
    not Supabase Auth. Passwords are hashed; the functions never return the hash. This is honest,
@@ -37,11 +53,15 @@ owner can ever create an admin. The Supabase keys only *connect* the app — the
 ## Recommendations
 
 - Use a strong, unique admin password. Reset it in **Authentication → Users** if needed.
-- Never expose your Supabase **service_role** key anywhere in this app.
+- Keep the **service_role**, **Stripe secret** and **webhook signing** keys in Vercel environment
+  variables only. They are server-side secrets; if one leaks, roll it immediately.
 - Re-run `supabase/setup.sql` if you deployed an older version — it upgrades the old open policies to
   the locked-down set (it drops the previous `anon write` / `anon read orders` policies).
-- If you handle real payment info or highly sensitive data, use a hosted platform with server-side
-  auth and PCI compliance — that's outside this project's scope.
+- Test card payments with Stripe's test keys (`sk_test_…`) and test cards before switching to live
+  keys. Check that an order flips to **Paid** in Admin → Orders — if it doesn't, your webhook URL or
+  signing secret is wrong.
+- This project deliberately stores no card data of any kind; leave it that way. If you need to handle
+  highly sensitive data beyond orders, that's outside this project's scope.
 
 ## Reporting
 

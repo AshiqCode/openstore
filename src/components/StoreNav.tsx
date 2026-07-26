@@ -8,6 +8,7 @@ import { cartCount, onCartChange } from '@/lib/cart';
 import { favoritesCount, onFavoritesChange } from '@/lib/favorites';
 import { useCustomer } from '@/components/CustomerProvider';
 import { MobileDrawer } from '@/components/MobileDrawer';
+import { AnnouncementBar } from '@/components/AnnouncementBar';
 import type { Settings } from '@/lib/types';
 
 const NAV_LINKS = [
@@ -43,6 +44,9 @@ export function StoreNav({ settings, loading = false }: { settings: Settings; lo
 
   return (
     <>
+      {/* Announcement strip — sits above the sticky header so it scrolls away. */}
+      {!loading && <AnnouncementBar text={settings.banner_text} />}
+
       <header className="sticky top-0 z-30 border-b border-line bg-card/90 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">

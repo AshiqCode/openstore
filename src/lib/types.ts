@@ -25,6 +25,9 @@ export type OrderItem = {
   image_url?: string;
 };
 
+export type PaymentMethod = 'cod' | 'card';
+export type PaymentStatus = 'unpaid' | 'paid';
+
 export type Order = {
   id: string;
   customer_name: string;
@@ -34,6 +37,11 @@ export type Order = {
   items: OrderItem[];
   total: number;
   status: OrderStatus;
+  // How the shopper chose to pay, and whether Stripe has confirmed the money.
+  // COD orders stay 'unpaid' until the seller collects cash in person.
+  // Optional: rows created before the store re-ran setup.sql have neither.
+  payment_method?: PaymentMethod;
+  payment_status?: PaymentStatus;
   created_at: string;
 };
 
@@ -43,6 +51,9 @@ export type Settings = {
   theme: string;
   whatsapp_number: string;
   currency: string;
+  // ISO code Stripe charges in (pkr, usd, aed…). `currency` above is only the
+  // symbol shown in the UI; Stripe needs the real code.
+  currency_code: string;
   banner_text: string;
   logo_url: string;
   favicon_url: string;
@@ -68,6 +79,7 @@ export const SETTINGS_KEYS: (keyof Settings)[] = [
   'theme',
   'whatsapp_number',
   'currency',
+  'currency_code',
   'banner_text',
   'logo_url',
   'favicon_url',
@@ -91,6 +103,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'clean',
   whatsapp_number: '',
   currency: 'Rs.',
+  currency_code: 'pkr',
   banner_text: '',
   logo_url: '',
   favicon_url: '',

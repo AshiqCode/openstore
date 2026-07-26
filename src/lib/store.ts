@@ -7,6 +7,7 @@ import {
   type Order,
   type OrderItem,
   type OrderStatus,
+  type PaymentMethod,
   type Product,
   type Settings,
 } from './types';
@@ -151,6 +152,7 @@ export type NewOrder = {
   address: string;
   items: OrderItem[];
   total: number;
+  payment_method: PaymentMethod;
 };
 
 // A logged-in shopper's full order history, newest first. Looked up by their
@@ -186,18 +188,44 @@ function newOrderId(): string {
   });
 }
 
+// PostgREST reports an unknown column as PGRST204. For us that means the store
+// is on an older schema — it hasn't re-run supabase/setup.sql since card
+// payments were added, so `orders` has no payment_* columns yet.
+function isMissingPaymentColumn(error: { code?: string; message?: string }): boolean {
+  return error.code === 'PGRST204' || /payment_method|payment_status/.test(error.message ?? '');
+}
+
+export type CreateOrderResult = {
+  id: string | null;
+  // True when the order could not be placed because the store still needs the
+  // updated setup SQL. Only ever set for card orders.
+  needsMigration?: boolean;
+};
+
 // Creates an order (anyone may place one). We set the id ourselves and don't
 // read the row back, since RLS lets the public insert orders but not read them.
-// Returns the id (its first 8 chars are the code shown to the customer).
-export async function createOrder(order: NewOrder): Promise<string | null> {
+// The id's first 8 chars are the code shown to the customer.
+export async function createOrder(order: NewOrder): Promise<CreateOrderResult> {
   const supabase = await getSupabase();
-  if (!supabase) return null;
+  if (!supabase) return { id: null };
   const id = newOrderId();
   const { error } = await supabase
     .from('orders')
     .insert({ id, ...order, status: 'pending' });
-  if (error) return null;
-  return id;
+  if (!error) return { id };
+
+  if (isMissingPaymentColumn(error)) {
+    // Card orders must NOT fall back: without the columns the webhook could
+    // never record the payment, so we'd take money we can't mark as received.
+    if (order.payment_method === 'card') return { id: null, needsMigration: true };
+
+    // Cash on delivery works fine on the old schema — place the order without
+    // the payment fields so upgrading the code never blocks a sale.
+    const { payment_method: _omit, ...legacy } = order;
+    const retry = await supabase.from('orders').insert({ id, ...legacy, status: 'pending' });
+    if (!retry.error) return { id };
+  }
+  return { id: null };
 }
 
 // Look up a single order for customer order-tracking, by the full id or the

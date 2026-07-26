@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { PackageSearch, MessageCircle, LogIn } from 'lucide-react';
+import { PackageSearch, MessageCircle, LogIn, CreditCard } from 'lucide-react';
 import { StoreNav } from '@/components/StoreNav';
 import { StoreFooter } from '@/components/StoreFooter';
 import { FullPageSpinner, Spinner } from '@/components/Spinner';
@@ -11,6 +11,9 @@ import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { getActiveProducts, getOrderByCode, getOrdersForCustomer, getSettings } from '@/lib/store';
 import { money, shortDate, waLink } from '@/lib/format';
+import { payForOrder, needsPayment } from '@/lib/pay';
+import { PaymentBadge } from '@/components/PaymentBadge';
+import { useToast } from '@/components/Toast';
 import { useCustomer } from '@/components/CustomerProvider';
 import { DEFAULT_SETTINGS, type Order, type OrderStatus, type Settings } from '@/lib/types';
 
@@ -160,21 +163,39 @@ function OrderCard({
   settings: Settings;
   images: Record<string, string>;
 }) {
+  const toast = useToast();
+  const customer = useCustomer();
+  const [paying, setPaying] = useState(false);
   const s = STATUS_STYLES[order.status] ?? STATUS_STYLES.pending;
   // Only pending / confirmed orders get the "track on WhatsApp" button.
   const canTrack = order.status === 'pending' || order.status === 'confirmed';
   const waMessage = `Assalam o Alaikum! Mera order track karna hai.\nOrder ID: #${order.id.slice(0, 8)}\nStore: ${settings.store_name}`;
   const link = waLink(settings.whatsapp_number, waMessage);
 
+  // A card order Stripe never confirmed. Paying is the useful action here, so
+  // it takes priority over the "chat on WhatsApp" button.
+  const unpaid = needsPayment(order);
+
+  async function pay() {
+    setPaying(true);
+    const res = await payForOrder(order.id, order.items || [], customer?.email);
+    // On success the browser has already left for Stripe.
+    if (!res.ok) {
+      setPaying(false);
+      toast(res.error || 'Could not start the payment.', 'error');
+    }
+  }
+
   return (
     <div className="card p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-sm font-semibold">#{order.id.slice(0, 8)}</span>
             <span className="badge" style={{ background: s.bg, color: s.color }}>
               {s.label}
             </span>
+            <PaymentBadge order={order} />
           </div>
           <div className="text-xs text-muted">{shortDate(order.created_at)}</div>
         </div>
@@ -201,17 +222,41 @@ function OrderCard({
         })}
       </div>
 
-      {canTrack && link && (
-        <a
-          href={link}
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-outline btn-sm mt-3 inline-flex items-center gap-1.5"
-          style={{ color: '#16a34a', borderColor: 'rgba(22,163,74,0.4)' }}
-        >
-          <MessageCircle size={15} /> Track your order on WhatsApp
-        </a>
+      {unpaid && (
+        <p className="mt-3 rounded-theme bg-amber-50 p-2 text-sm text-amber-700">
+          This order isn&apos;t paid yet. Finish the payment to confirm it.
+        </p>
       )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {unpaid && (
+          <button
+            className="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+            onClick={pay}
+            disabled={paying}
+          >
+            {paying ? (
+              <Spinner size={15} />
+            ) : (
+              <>
+                <CreditCard size={15} /> Pay {money(Number(order.total), settings.currency)}
+              </>
+            )}
+          </button>
+        )}
+        {/* Unpaid card orders show only "Pay" — paying is the one useful action. */}
+        {!unpaid && canTrack && link && (
+          <a
+            href={link}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-outline btn-sm inline-flex items-center gap-1.5"
+            style={{ color: '#16a34a', borderColor: 'rgba(22,163,74,0.4)' }}
+          >
+            <MessageCircle size={15} /> Track your order on WhatsApp
+          </a>
+        )}
+      </div>
     </div>
   );
 }

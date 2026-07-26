@@ -7,6 +7,7 @@ import { useToast } from '@/components/Toast';
 import { getOrders, getSettings, updateOrderStatus } from '@/lib/store';
 import { money, shortDate, buildOrderMessage, waLink } from '@/lib/format';
 import { MapPin, MessageCircle, Package, ChevronDown, Check } from 'lucide-react';
+import { PaymentBadge } from '@/components/PaymentBadge';
 import {
   DEFAULT_SETTINGS,
   type Order,
@@ -115,9 +116,10 @@ function Orders() {
             <div key={o.id} className="card p-4 transition hover:shadow-md">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{o.customer_name || 'Customer'}</span>
                     <StatusBadge status={o.status} />
+                    <PaymentBadge order={o} />
                   </div>
                   <a href={`tel:${o.phone}`} className="text-sm text-primary">
                     {o.phone}

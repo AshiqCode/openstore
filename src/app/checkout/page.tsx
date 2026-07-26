@@ -3,15 +3,21 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { StoreNav } from '@/components/StoreNav';
-import { FullPageSpinner } from '@/components/Spinner';
+import { FullPageSpinner, Spinner } from '@/components/Spinner';
 import { StoreUnavailable } from '@/components/StoreUnavailable';
 import { useConfigGuard } from '@/lib/useConfigGuard';
 import { createOrder, getSettings } from '@/lib/store';
 import { getCart, cartSubtotal, clearCart } from '@/lib/cart';
-import { money, buildOrderMessage, waLink } from '@/lib/format';
+import { money } from '@/lib/format';
+import { payForOrder } from '@/lib/pay';
 import { useToast } from '@/components/Toast';
-import { CheckCircle2, LogIn } from 'lucide-react';
-import { DEFAULT_SETTINGS, type OrderItem, type Settings } from '@/lib/types';
+import { CheckCircle2, LogIn, Banknote, CreditCard } from 'lucide-react';
+import {
+  DEFAULT_SETTINGS,
+  type OrderItem,
+  type PaymentMethod,
+  type Settings,
+} from '@/lib/types';
 import { useT } from '@/components/LanguageProvider';
 import { useCustomer } from '@/components/CustomerProvider';
 import { updateCustomerProfile } from '@/lib/customer';
@@ -30,6 +36,11 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [doneId, setDoneId] = useState<string | null>(null);
+  const [payment, setPayment] = useState<PaymentMethod>('cod');
+  const [cardEnabled, setCardEnabled] = useState(false);
+  const [paidByCard, setPaidByCard] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
     if (guard !== 'ready') return;
@@ -37,6 +48,50 @@ export default function CheckoutPage() {
     setItems(getCart());
     setReady(true);
   }, [guard]);
+
+  // Card payments only appear if the deployment actually has a Stripe key.
+  useEffect(() => {
+    fetch('/api/checkout/')
+      .then((r) => (r.ok ? r.json() : { enabled: false }))
+      .then((d) => setCardEnabled(!!d.enabled))
+      .catch(() => setCardEnabled(false));
+  }, []);
+
+  // Handle the return trip from Stripe. Read from window rather than
+  // useSearchParams so the page doesn't need a Suspense boundary.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paid = params.get('paid');
+    const sessionId = params.get('session_id');
+    if (paid) {
+      clearCart();
+      setItems([]);
+      setPaidByCard(true);
+      setDoneId(paid);
+      window.history.replaceState({}, '', '/checkout/');
+
+      // Ask our server to verify the payment with Stripe and record it. The
+      // webhook does this too; whichever gets there first wins.
+      if (sessionId) {
+        setConfirming(true);
+        fetch('/api/checkout/confirm/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: paid, sessionId }),
+        })
+          .then((r) => r.json().catch(() => ({})))
+          .then((d) => setConfirmed(!!d.paid && d.recorded !== false))
+          .catch(() => setConfirmed(false))
+          .finally(() => setConfirming(false));
+      }
+      return;
+    }
+    if (params.get('canceled')) {
+      toast('Payment canceled — your cart is still here.', 'error');
+      window.history.replaceState({}, '', '/checkout/');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Prefill from the logged-in shopper's saved profile.
   useEffect(() => {
@@ -96,41 +151,55 @@ export default function CheckoutPage() {
     }
     if (items.length === 0) return;
 
+    const method: PaymentMethod = cardEnabled ? payment : 'cod';
+
     setSubmitting(true);
-    const id = await createOrder({
+    const created = await createOrder({
       customer_name: name.trim(),
       customer_email: (customer?.email ?? '').toLowerCase(),
       phone: phone.trim(),
       address: address.trim(),
       items,
       total,
+      payment_method: method,
     });
-    setSubmitting(false);
 
+    const id = created.id;
     if (!id) {
-      toast(S.errSaveFailed, 'error');
+      setSubmitting(false);
+      toast(
+        created.needsMigration
+          ? 'Card payments are not ready on this store yet. Please choose Cash on delivery.'
+          : S.errSaveFailed,
+        'error'
+      );
+      // Let them switch instead of hitting the same wall again.
+      if (created.needsMigration) setPayment('cod');
       return;
     }
 
     // Remember the shopper's details for next time.
     void updateCustomerProfile({ name: name.trim(), phone: phone.trim(), address: address.trim() });
 
-    // Order saved. Open WhatsApp if a number is configured.
-    const message = buildOrderMessage({
-      storeName: settings.store_name,
-      items,
-      deliveryCharges: delivery,
-      total,
-      name: name.trim(),
-      phone: phone.trim(),
-      address: address.trim(),
-      currency: settings.currency,
-      orderId: id,
-    });
-    const link = waLink(settings.whatsapp_number, message);
+    // Card: hand off to Stripe. The cart is deliberately NOT cleared yet — if
+    // they abandon the payment page they come back to an intact cart, and the
+    // order stays payable from Track & order history.
+    if (method === 'card') {
+      const res = await payForOrder(id, items, (customer?.email ?? '').toLowerCase());
+      if (!res.ok) {
+        setSubmitting(false);
+        toast(res.error || 'Could not start the payment.', 'error');
+      }
+      return;
+    }
+
+    setSubmitting(false);
+
+    // Cash on delivery: the order is already saved to the database, which is
+    // all the seller needs. WhatsApp is only used for tracking an order, never
+    // for placing one.
     clearCart();
     setDoneId(id);
-    if (link) window.open(link, '_blank');
   }
 
   if (doneId) {
@@ -142,14 +211,33 @@ export default function CheckoutPage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
               <CheckCircle2 size={32} />
             </div>
-            <h1 className="text-xl font-bold">{S.orderReceived}</h1>
+            <h1 className="text-xl font-bold">
+              {paidByCard ? 'Payment successful' : S.orderReceived}
+            </h1>
             <p className="mt-2 text-muted">
               Order ID: <span className="font-mono font-semibold">{doneId.slice(0, 8)}</span>
             </p>
-            {settings.whatsapp_number ? (
-              <p className="mt-2 text-sm text-muted">{S.whatsappOpened}</p>
-            ) : null}
-            <Link href={`/track?id=${doneId.slice(0, 8)}`} className="btn btn-primary mt-6 w-full">
+            {paidByCard ? (
+              confirming ? (
+                <p className="mt-2 flex items-center justify-center gap-2 text-sm text-muted">
+                  <Spinner size={15} /> Confirming your payment…
+                </p>
+              ) : confirmed ? (
+                <p className="mt-2 text-sm text-muted">
+                  Thanks! Your card payment went through and the seller has your order.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-muted">
+                  Thanks! Your payment is being confirmed — the order updates as soon as it clears.
+                </p>
+              )
+            ) : (
+              <p className="mt-2 text-sm text-muted">
+                The seller has your order and will contact you to arrange delivery. Pay cash when it
+                arrives.
+              </p>
+            )}
+            <Link href={`/track/?id=${doneId.slice(0, 8)}`} className="btn btn-primary mt-6 w-full">
               Track this order
             </Link>
             <Link href="/" className="btn btn-outline mt-2 w-full">
@@ -199,13 +287,38 @@ export default function CheckoutPage() {
                   onChange={(e) => setAddress(e.target.value)}
                 />
               </div>
+              {cardEnabled && (
+                <div>
+                  <label className="label">Payment</label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <PayOption
+                      active={payment === 'cod'}
+                      onClick={() => setPayment('cod')}
+                      icon={<Banknote size={18} />}
+                      title="Cash on delivery"
+                      sub="Pay the rider when it arrives"
+                    />
+                    <PayOption
+                      active={payment === 'card'}
+                      onClick={() => setPayment('card')}
+                      icon={<CreditCard size={18} />}
+                      title="Pay with card"
+                      sub="Secure payment via Stripe"
+                    />
+                  </div>
+                </div>
+              )}
               {storeClosed && (
                 <p className="rounded-theme bg-amber-50 p-2 text-sm text-amber-700">
                   🛑 The store is closed right now — ordering is paused.
                 </p>
               )}
               <button className="btn btn-primary mt-2" disabled={submitting || storeClosed}>
-                {submitting ? S.saving : S.placeOrder}
+                {submitting
+                  ? S.saving
+                  : cardEnabled && payment === 'card'
+                    ? `Pay ${money(total, settings.currency)}`
+                    : S.placeOrder}
               </button>
             </form>
 
@@ -244,5 +357,42 @@ export default function CheckoutPage() {
         )}
       </main>
     </div>
+  );
+}
+
+// One selectable payment method. Radio semantics, card-sized tap target.
+function PayOption({
+  active,
+  onClick,
+  icon,
+  title,
+  sub,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className="flex items-center gap-3 rounded-theme border p-3 text-left transition"
+      style={{
+        borderColor: active ? 'var(--color-primary)' : 'var(--color-border)',
+        background: active
+          ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)'
+          : 'transparent',
+      }}
+    >
+      <span style={{ color: active ? 'var(--color-primary)' : 'var(--color-muted)' }}>{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block text-xs text-muted">{sub}</span>
+      </span>
+    </button>
   );
 }
