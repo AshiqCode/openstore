@@ -5,6 +5,8 @@ import { AdminShell } from '@/components/admin/AdminShell';
 import { Spinner } from '@/components/Spinner';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/Confirm';
+import { Pagination } from '@/components/Pagination';
+import { usePagination } from '@/lib/usePagination';
 import { Modal } from '@/components/Modal';
 import { Select } from '@/components/Select';
 import {
@@ -52,6 +54,7 @@ function Products() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Product | 'new' | null>(null);
+  const paged = usePagination(products, 10);
 
   async function refresh() {
     const [p, s] = await Promise.all([getAllProducts(), getSettings()]);
@@ -154,7 +157,11 @@ function Products() {
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {products.map((p, i) => (
+          {paged.pageItems.map((p, i) => {
+            // Reordering works on the whole catalogue, not just this page, so
+            // the arrows need the item's real position in `products`.
+            const gi = paged.start + i;
+            return (
             <div
               key={p.id}
               className={`card flex items-center gap-3 p-3 transition hover:shadow-md ${
@@ -164,16 +171,16 @@ function Products() {
               <div className="flex flex-col text-muted">
                 <button
                   className="rounded p-0.5 hover:bg-bg hover:text-primary disabled:opacity-25"
-                  onClick={() => move(i, -1)}
-                  disabled={i === 0}
+                  onClick={() => move(gi, -1)}
+                  disabled={gi === 0}
                   aria-label="Move up"
                 >
                   <ChevronUp size={16} />
                 </button>
                 <button
                   className="rounded p-0.5 hover:bg-bg hover:text-primary disabled:opacity-25"
-                  onClick={() => move(i, 1)}
-                  disabled={i === products.length - 1}
+                  onClick={() => move(gi, 1)}
+                  disabled={gi === products.length - 1}
                   aria-label="Move down"
                 >
                   <ChevronDown size={16} />
@@ -220,7 +227,18 @@ function Products() {
                 <Trash2 size={17} />
               </button>
             </div>
-          ))}
+            );
+          })}
+
+          <Pagination
+            page={paged.page}
+            totalPages={paged.totalPages}
+            total={paged.total}
+            start={paged.start}
+            shown={paged.pageItems.length}
+            onChange={paged.setPage}
+            label="products"
+          />
         </div>
       )}
 

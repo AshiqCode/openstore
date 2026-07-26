@@ -8,6 +8,8 @@ import { getOrders, getSettings, updateOrderStatus } from '@/lib/store';
 import { money, shortDate, buildOrderMessage, waLink } from '@/lib/format';
 import { MapPin, MessageCircle, Package, ChevronDown, Check } from 'lucide-react';
 import { PaymentBadge } from '@/components/PaymentBadge';
+import { Pagination } from '@/components/Pagination';
+import { usePagination } from '@/lib/usePagination';
 import {
   DEFAULT_SETTINGS,
   type Order,
@@ -52,6 +54,15 @@ function Orders() {
     () => (filter === 'all' ? orders : orders.filter((o) => o.status === filter)),
     [orders, filter]
   );
+
+  // Filters run over every order; only the display is chunked.
+  const paged = usePagination(shown, 10);
+
+  // Switching filter should start from the top of the new list.
+  useEffect(() => {
+    paged.setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
 
   async function changeStatus(o: Order, status: OrderStatus) {
     setOrders((list) => list.map((x) => (x.id === o.id ? { ...x, status } : x)));
@@ -112,7 +123,7 @@ function Orders() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {shown.map((o) => (
+          {paged.pageItems.map((o) => (
             <div key={o.id} className="card p-4 transition hover:shadow-md">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -160,6 +171,16 @@ function Orders() {
               </div>
             </div>
           ))}
+
+          <Pagination
+            page={paged.page}
+            totalPages={paged.totalPages}
+            total={paged.total}
+            start={paged.start}
+            shown={paged.pageItems.length}
+            onChange={paged.setPage}
+            label="orders"
+          />
         </div>
       )}
     </div>

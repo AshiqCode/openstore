@@ -15,6 +15,9 @@ import { useT } from '@/components/LanguageProvider';
 
 type SortKey = 'featured' | 'newest' | 'price_asc' | 'price_desc';
 
+// How many products the grid reveals at a time.
+const GRID_PAGE = 12;
+
 export default function HomePage() {
   const guard = useConfigGuard();
   const S = useT();
@@ -72,6 +75,15 @@ export default function HomePage() {
     });
     return list;
   }, [products, activeCat, query, sort]);
+
+  // Shoppers get "Load more" rather than page numbers — breaking a product grid
+  // into numbered pages interrupts browsing, and losing your place is worse
+  // than a slightly longer page.
+  const [visibleCount, setVisibleCount] = useState(GRID_PAGE);
+  useEffect(() => {
+    setVisibleCount(GRID_PAGE);
+  }, [activeCat, query, sort]);
+  const visibleProducts = useMemo(() => shown.slice(0, visibleCount), [shown, visibleCount]);
 
   const featured = useMemo(() => products.filter((p) => p.is_featured), [products]);
   const storeClosed = settings.store_open === 'false';
@@ -210,11 +222,27 @@ export default function HomePage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {shown.map((p) => (
-              <ProductCard key={p.id} product={p} currency={settings.currency} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {visibleProducts.map((p) => (
+                <ProductCard key={p.id} product={p} currency={settings.currency} />
+              ))}
+            </div>
+
+            {visibleProducts.length < shown.length && (
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <p className="text-xs text-muted">
+                  Showing {visibleProducts.length} of {shown.length} products
+                </p>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setVisibleCount((v) => v + GRID_PAGE)}
+                >
+                  Load more
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
 

@@ -16,6 +16,48 @@ require (a Stripe secret key can never be shipped to a browser).
 - **Admin = a real Supabase Auth user.** Logging in issues a JWT, and the write/read-orders policies
   are scoped `to authenticated`. So only the logged-in owner can manage the store or see orders.
 
+## The API routes
+
+There are five, and each is protected by what it actually needs:
+
+| Route | Who may call it | How it's enforced |
+|---|---|---|
+| `POST /api/checkout` | anyone (shoppers aren't logged in) | Prices recomputed from the database; the order must exist and be unpaid; 12 requests/min per IP |
+| `GET /api/checkout` | anyone | Returns only whether card payment is switched on |
+| `POST /api/checkout/confirm` | anyone | The session is fetched from Stripe and its stored `order_id` must match; 20/min per IP |
+| `POST /api/stripe/webhook` | Stripe only | Stripe signature verified against `STRIPE_WEBHOOK_SECRET` |
+| `POST /api/team/invite`, `/api/team/remove` | the owner only | Bearer token verified with Supabase, role read server-side, and the SQL functions re-check with `assert_owner()` |
+
+Two things worth being explicit about:
+
+- **The two public payment routes cannot be made login-only** — a shopper checking out has no Supabase
+  session. They are safe because they never trust a number from the browser: the browser sends product
+  ids and quantities, and the server derives every price, and payment is only ever confirmed by asking
+  Stripe.
+- **Rate limiting is in-memory**, so on Vercel it is per serverless instance. It stops a simple loop
+  against one endpoint; it is not a substitute for a WAF if you are being targeted.
+
+Admin pages are also served with `X-Robots-Tag: noindex` and `Cache-Control: no-store`, and every
+response carries `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `nosniff`, a strict
+`Referrer-Policy` and a `Permissions-Policy` that denies camera/mic/geolocation/payment/USB.
+
+There is deliberately **no Content-Security-Policy**: the store redirects to Stripe, loads product
+images from arbitrary storage URLs and themes with inline styles, so a policy written without testing
+against a real store would break working pages. Add one once you know your own image hosts.
+
+## Who can reach the admin panel
+
+Anyone can *load* `/admin` — it's a page, and the real boundary is the database, not the URL. Signing
+in requires a Supabase Auth user, and access requires a **role** in the `staff` table:
+
+- `owner` — everything, including the team
+- `manager` — products, settings, orders, customers
+- `staff` — orders only
+
+A login with no role gets nothing: row-level security refuses it, and the panel says so instead of
+showing empty screens. That matters because an abandoned invitation, or an account added by hand in
+the Supabase dashboard, is a login that nobody deliberately granted access to.
+
 ## How the admin is created
 
 There is **no public sign-up**. You create your single admin in the Supabase dashboard

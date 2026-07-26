@@ -136,6 +136,53 @@ needed.
 
 ---
 
+## 👥 Invite your team (optional)
+
+**Admin → Team** lets the owner invite other people and choose what each may do.
+
+| Role | Can do |
+|---|---|
+| **Owner** | Everything, including inviting and removing people |
+| **Manager** | Products, settings, theme, orders, customers — not the team |
+| **Staff** | Orders only — cannot change the catalogue, settings or the team |
+
+Roles are enforced by **row-level security in the database**, not just hidden in the menu: a Staff
+account that tried to edit a product would be refused by Postgres.
+
+Inviting requires `SUPABASE_SERVICE_ROLE_KEY` (the same variable card payments use) — creating a
+login goes through the Supabase Admin API.
+
+**Sending the email.** Invitations use Supabase's own invite email, so delivery is configured in
+**Supabase → Authentication → Emails**. Supabase's built-in sender is rate-limited and meant for
+testing, so for real use point it at an SMTP provider. With [Resend](https://resend.com) that means
+verifying your domain, then in Supabase → Authentication → Emails → SMTP:
+
+| Field | Value |
+|---|---|
+| Host | `smtp.resend.com` |
+| Port | `465` |
+| Username | `resend` |
+| Password | your Resend API key |
+| Sender email | an address on your verified domain, e.g. `team@yourstore.com` |
+
+**If the email can't be sent, invites still work.** The account and role are created either way, and
+the Team page shows the one-time link with a Copy button — send it by WhatsApp or SMS and it behaves
+exactly like the emailed one. Treat that link like a password.
+
+**How an invite works:** the person gets a one-time link, sets their **own** password, and lands in
+the admin panel. You never see or choose their password. Removing someone deletes both their role and
+their login, so access stops immediately — their past work on orders and products is untouched.
+
+**Access is granted only by a role.** When you re-run the setup SQL, every login that already exists
+and is confirmed is recorded as an **owner** — that's how you keep your own access. After that, a
+login with no role gets nothing at all: it can sign in and sees only a "this account has no access"
+message. That covers accounts created straight in the Supabase dashboard and abandoned invitations.
+
+You must re-run the setup SQL from **Admin → Settings → Database setup** once to add the `staff`
+table and the role rules.
+
+---
+
 ## ❓ FAQ
 
 **How do I set up my admin login?**

@@ -6,7 +6,8 @@
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { serverSupabase } from '@/lib/serverSupabase';
+import { serverSupabase, serviceSupabase } from '@/lib/serverSupabase';
+import { allow, clientKey, tooManyRequests } from '@/lib/rateLimit';
 import { DEFAULT_SETTINGS, effectivePrice, type Product, type Settings } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -32,6 +33,11 @@ export function GET() {
 type Line = { id: string; qty: number };
 
 export async function POST(req: Request) {
+  // This endpoint is public by necessity — shoppers aren't logged in with a
+  // Supabase session — so it needs its own throttle. Creating Checkout Sessions
+  // costs nothing but should not be an open tap on someone else's Stripe account.
+  if (!allow(clientKey(req, 'checkout'), 12, 60_000)) return tooManyRequests();
+
   const secret = process.env.STRIPE_SECRET_KEY;
   if (!secret) {
     return NextResponse.json({ error: 'Card payments are not configured.' }, { status: 503 });
@@ -56,6 +62,37 @@ export async function POST(req: Request) {
   const supabase = serverSupabase();
   if (!supabase) {
     return NextResponse.json({ error: 'Store is not configured.' }, { status: 503 });
+  }
+
+  // The order must be a real, unpaid order. Without this, anyone could POST an
+  // invented id and mint Checkout Sessions on the store's Stripe account, and a
+  // shopper could be walked into paying for the same order twice.
+  //
+  // Orders aren't readable with the anon key (RLS), so this needs the service
+  // key. If it isn't set, card payments can't be recorded anyway — see
+  // /api/checkout/confirm — so refusing here is the honest outcome.
+  const admin = serviceSupabase();
+  if (!admin) {
+    return NextResponse.json(
+      { error: 'Card payments are not fully configured on this store.' },
+      { status: 503 }
+    );
+  }
+
+  const { data: order, error: orderError } = await admin
+    .from('orders')
+    .select('id, payment_status')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (orderError) {
+    return NextResponse.json({ error: 'Could not verify the order.' }, { status: 502 });
+  }
+  if (!order) {
+    return NextResponse.json({ error: 'That order does not exist.' }, { status: 404 });
+  }
+  if (order.payment_status === 'paid') {
+    return NextResponse.json({ error: 'That order is already paid.' }, { status: 409 });
   }
 
   // Settings — currency, delivery, store name (all publicly readable).

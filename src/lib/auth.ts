@@ -90,6 +90,21 @@ export async function isLoggedIn(): Promise<boolean> {
   return !!data.session;
 }
 
+// Server-verified version of the above.
+//
+// getSession() only reads the token cached in this browser, so someone whose
+// account was deleted still looks logged in until that token expires — up to an
+// hour. getUser() asks Supabase, which fails immediately once the account is
+// gone. Use this to decide whether someone may still be in the admin panel.
+export async function verifySession(): Promise<boolean> {
+  const supabase = await getSupabase();
+  if (!supabase) return false;
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return false;
+  const { data: user, error } = await supabase.auth.getUser();
+  return !error && !!user?.user;
+}
+
 export async function getAdminEmail(): Promise<string> {
   const supabase = await getSupabase();
   if (!supabase) return '';

@@ -12,11 +12,15 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { markOrderPaid, orderIdOf } from '@/lib/markPaid';
+import { allow, clientKey, tooManyRequests } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  // Public endpoint: throttle so session ids can't be brute-forced against it.
+  if (!allow(clientKey(req, 'confirm'), 20, 60_000)) return tooManyRequests();
+
   const secret = process.env.STRIPE_SECRET_KEY;
   if (!secret) {
     return NextResponse.json({ paid: false, error: 'Card payments are not configured.' }, { status: 503 });
